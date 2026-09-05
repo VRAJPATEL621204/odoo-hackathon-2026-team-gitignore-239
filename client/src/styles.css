@@ -1,27 +1,44 @@
 /*
- * PeoplePay360 stylesheet.
+ * PeoplePay360 stylesheet — Material You (Material Design 3).
  *
- * One hand-written file, system fonts, no CSS framework. The UI exists to make
- * the business logic legible, so the palette is deliberately flat and the
- * emphasis is on tables, forms, statuses and results.
+ * One hand-written file, no CSS framework, matching the rest of the codebase.
+ * Surfaces are tonal (never pure white), controls are pill-shaped, and hover
+ * / active feedback comes from state-layer overlays rather than colour swaps.
+ * The seed colour is the purple in --color-primary; every other tone is
+ * derived from it the way Material You derives a palette from a wallpaper.
  */
 
 :root {
-  --color-bg: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-border: #d8dce3;
-  --color-border-strong: #b6bcc7;
-  --color-text: #1c2331;
-  --color-text-muted: #5c6675;
-  --color-primary: #2f5bea;
-  --color-primary-hover: #2447c4;
-  --color-danger: #c0392f;
-  --color-danger-bg: #fdeceb;
-  --color-success: #1e7d43;
-  --color-success-bg: #e8f5ed;
-  --color-warning: #9a6400;
-  --color-warning-bg: #fdf3e0;
-  --color-info-bg: #eaf0fe;
+  /* Tonal surfaces, lightest to most recessed. Cards sit one step below the
+     page so they read as raised without a border or heavy shadow. */
+  --color-bg: #fffbfe;
+  --color-bg-rgb: 255, 251, 254;
+  --color-surface: #f3edf7;
+  --color-surface-rgb: 243, 237, 247;
+  --color-surface-low: #e7e0ec;
+  --color-border: #cac4d0;
+  --color-border-strong: #79747e;
+  --color-text: #1c1b1f;
+  --color-text-muted: #49454f;
+
+  --color-primary: #6750a4;
+  --color-primary-rgb: 103, 80, 164;
+  --color-on-primary: #ffffff;
+
+  --color-secondary-container: #e8def8;
+  --color-on-secondary-container: #1d192b;
+
+  --color-tertiary: #7d5260;
+  --color-tertiary-rgb: 125, 82, 96;
+  --color-on-tertiary: #ffffff;
+
+  --color-danger: #b3261e;
+  --color-danger-bg: #f9dedc;
+  --color-success: #1e6b3c;
+  --color-success-bg: #dcf3e4;
+  --color-warning: #8c5a00;
+  --color-warning-bg: #fbebd0;
+  --color-info-bg: var(--color-secondary-container);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -30,8 +47,26 @@
   --space-5: 24px;
   --space-6: 32px;
 
-  --radius: 6px;
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Organic, generous rounding — architectural, not decorative. Buttons,
+     chips and badges always use the full (pill) value. */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+
+  /* Elevation through soft, diffuse shadows layered with the tonal system,
+     not dramatic drop shadows. */
+  --elevation-1: 0 1px 2px rgb(28 27 31 / 6%), 0 1px 3px rgb(28 27 31 / 8%);
+  --elevation-2: 0 2px 6px rgb(28 27 31 / 8%), 0 4px 12px rgb(28 27 31 / 10%);
+  --elevation-3: 0 2px 8px rgb(28 27 31 / 8%), 0 8px 20px rgb(28 27 31 / 12%);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --motion-fast: 200ms;
+  --motion-standard: 300ms;
+
+  --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
 
@@ -61,23 +96,29 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.3;
 }
+
 h1 {
-  font-size: 20px;
+  font-size: 22px;
 }
+
 h2 {
   font-size: 16px;
 }
+
 h3 {
   font-size: 14px;
+  font-weight: 600;
 }
 
 a {
   color: var(--color-primary);
   text-decoration: none;
+  transition: color var(--motion-fast) ease;
 }
+
 a:hover {
   text-decoration: underline;
 }
@@ -95,9 +136,11 @@ a:hover {
   align-items: center;
   gap: var(--space-5);
   padding: var(--space-2) var(--space-5);
-  min-height: 52px;
+  min-height: 56px;
   flex-wrap: wrap;
-  background: var(--color-surface);
+  background: rgb(var(--color-surface-rgb) / 88%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--color-border);
   position: sticky;
   top: 0;
@@ -105,11 +148,12 @@ a:hover {
 }
 
 .topbar__brand {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 15px;
-  color: var(--color-text);
+  color: var(--color-primary);
   white-space: nowrap;
 }
+
 .topbar__brand:hover {
   text-decoration: none;
 }
@@ -134,20 +178,23 @@ a:hover {
 }
 
 .nav-link {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
   color: var(--color-text-muted);
   font-weight: 500;
   white-space: nowrap;
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
 }
+
 .nav-link:hover {
-  background: var(--color-bg);
+  background: rgb(var(--color-primary-rgb) / 8%);
   color: var(--color-text);
   text-decoration: none;
 }
+
 .nav-link.is-active {
-  background: var(--color-info-bg);
-  color: var(--color-primary);
+  background: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
 }
 
 /* Dropdown menus (Employees, Time Off, Payroll, account). Open state lives in
@@ -156,6 +203,7 @@ a:hover {
 .nav-menu {
   position: relative;
 }
+
 .nav-menu__trigger {
   display: inline-flex;
   align-items: center;
@@ -164,39 +212,44 @@ a:hover {
   background: none;
   font: inherit;
   cursor: pointer;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
   color: var(--color-text-muted);
   font-weight: 500;
   white-space: nowrap;
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
 }
+
 .nav-menu__trigger:hover,
 .nav-menu__trigger[aria-expanded='true'] {
-  background: var(--color-bg);
+  background: rgb(var(--color-primary-rgb) / 8%);
   color: var(--color-text);
 }
+
 /* Highlighted while the page on screen belongs to this group, so the user can
    see which menu they came from. */
 .nav-menu__trigger.is-active {
-  background: var(--color-info-bg);
-  color: var(--color-primary);
+  background: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
 }
+
 .nav-menu__items {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 8px);
   left: 0;
   min-width: 190px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgb(20 25 35 / 12%);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-2);
   padding: var(--space-1);
   display: flex;
   flex-direction: column;
   z-index: 30;
 }
+
 .nav-menu__items .nav-link {
   padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
 }
 
 .page {
@@ -215,10 +268,12 @@ a:hover {
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
+
 .page-header__subtitle {
   color: var(--color-text-muted);
   margin-top: var(--space-1);
 }
+
 .page-header__actions {
   display: flex;
   gap: var(--space-2);
@@ -226,9 +281,9 @@ a:hover {
 
 .card {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-1);
+  padding: var(--space-5);
 }
 
 .stack {
@@ -236,12 +291,14 @@ a:hover {
   flex-direction: column;
   gap: var(--space-4);
 }
+
 .row {
   display: flex;
   gap: var(--space-3);
   align-items: center;
   flex-wrap: wrap;
 }
+
 .grid {
   display: grid;
   gap: var(--space-4);
@@ -251,56 +308,93 @@ a:hover {
 .muted {
   color: var(--color-text-muted);
 }
+
 .mono {
   font-family: var(--font-mono);
   font-size: 12px;
 }
+
 .text-right {
   text-align: right;
 }
 
 /* --------------------------------------------------------------- controls */
 
+/* Pill-shaped with a tonal fill by default. Hover/active states lighten or
+   darken toward the colour that sits on top of the fill (white on a solid
+   colour, ink on a pale container) — a state-layer overlay, not a colour
+   swap. */
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  min-height: 34px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius);
-  background: var(--color-surface);
-  color: var(--color-text);
+  padding: 0 var(--space-6);
+  height: 40px;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
   font: inherit;
   font-weight: 500;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition: background-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-standard) var(--ease-standard),
+    transform 120ms var(--ease-standard);
 }
+
 .button:hover:not(:disabled) {
-  background: var(--color-bg);
+  background: color-mix(in srgb, var(--color-secondary-container), var(--color-on-secondary-container) 8%);
+  box-shadow: var(--elevation-1);
 }
+
+.button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-secondary-container), var(--color-on-secondary-container) 12%);
+  transform: scale(0.96);
+}
+
+.button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-primary);
+}
+
 .button:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
 }
+
 .button--primary {
   background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
 }
+
 .button--primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
+  background: color-mix(in srgb, var(--color-primary), white 10%);
+  box-shadow: var(--elevation-2);
 }
+
+.button--primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary), white 16%);
+}
+
 .button--danger {
   background: var(--color-danger);
-  border-color: var(--color-danger);
   color: #fff;
 }
+
+.button--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger), white 10%);
+  box-shadow: var(--elevation-2);
+}
+
+.button--danger:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger), white 16%);
+}
+
 .button--small {
-  min-height: 28px;
-  padding: var(--space-1) var(--space-3);
+  height: 32px;
+  padding: 0 var(--space-4);
   font-size: 13px;
 }
 
@@ -309,45 +403,55 @@ a:hover {
   flex-direction: column;
   gap: var(--space-1);
 }
+
 .field__label {
   font-weight: 500;
   color: var(--color-text);
 }
+
 .field__hint {
   color: var(--color-text-muted);
   font-size: 12px;
 }
+
 .field__error {
   color: var(--color-danger);
   font-size: 12px;
 }
 
+/* Material 3 filled text field: rounded top, square bottom, sitting on a
+   recessed tonal fill with a coloured underline instead of a full border. */
 .input,
 .select,
 .textarea {
   width: 100%;
-  padding: var(--space-2) var(--space-3);
-  min-height: 34px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius);
-  background: var(--color-surface);
+  padding: var(--space-3);
+  min-height: 44px;
+  border: none;
+  border-bottom: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--color-surface-low);
   color: var(--color-text);
   font: inherit;
+  transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
 }
+
 .input:focus,
 .select:focus,
 .textarea:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -1px;
-  border-color: var(--color-primary);
+  outline: none;
+  border-bottom-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-surface-low), var(--color-primary) 6%);
 }
+
 .input--invalid,
 .select--invalid,
 .textarea--invalid {
-  border-color: var(--color-danger);
+  border-bottom-color: var(--color-danger);
 }
+
 .textarea {
-  min-height: 72px;
+  min-height: 88px;
   resize: vertical;
 }
 
@@ -355,9 +459,9 @@ a:hover {
 
 .table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
+  box-shadow: var(--elevation-1);
 }
 
 .table {
@@ -365,6 +469,7 @@ a:hover {
   border-collapse: collapse;
   font-size: 13px;
 }
+
 .table th,
 .table td {
   padding: var(--space-3);
@@ -372,19 +477,23 @@ a:hover {
   border-bottom: 1px solid var(--color-border);
   white-space: nowrap;
 }
+
 .table th {
-  background: var(--color-bg);
+  background: var(--color-surface-low);
   font-weight: 600;
   color: var(--color-text-muted);
   position: sticky;
   top: 0;
 }
+
 .table tbody tr:last-child td {
   border-bottom: none;
 }
+
 .table tbody tr:hover td {
-  background: var(--color-bg);
+  background: rgb(var(--color-primary-rgb) / 5%);
 }
+
 .table__cell--numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -394,52 +503,55 @@ a:hover {
 
 .badge {
   display: inline-block;
-  padding: 2px var(--space-2);
-  border-radius: 10px;
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-full);
   font-size: 12px;
   font-weight: 500;
-  background: var(--color-bg);
+  background: var(--color-surface-low);
   color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
+  border: none;
 }
+
 .badge--success {
   background: var(--color-success-bg);
   color: var(--color-success);
-  border-color: transparent;
 }
+
 .badge--warning {
   background: var(--color-warning-bg);
   color: var(--color-warning);
-  border-color: transparent;
 }
+
 .badge--danger {
   background: var(--color-danger-bg);
   color: var(--color-danger);
-  border-color: transparent;
 }
+
 .badge--info {
   background: var(--color-info-bg);
   color: var(--color-primary);
-  border-color: transparent;
 }
 
 .notice {
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius);
-  border: 1px solid transparent;
+  border-radius: var(--radius-md);
 }
+
 .notice--error {
   background: var(--color-danger-bg);
   color: var(--color-danger);
 }
+
 .notice--warning {
   background: var(--color-warning-bg);
   color: var(--color-warning);
 }
+
 .notice--success {
   background: var(--color-success-bg);
   color: var(--color-success);
 }
+
 .notice--info {
   background: var(--color-info-bg);
   color: var(--color-primary);
@@ -450,6 +562,7 @@ a:hover {
   text-align: center;
   color: var(--color-text-muted);
 }
+
 .empty-state__title {
   color: var(--color-text);
   font-weight: 600;
@@ -467,6 +580,7 @@ a:hover {
   border-radius: 50%;
   animation: spin 600ms linear infinite;
 }
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -475,25 +589,38 @@ a:hover {
 
 /* Skeletons are sized to the final content so nothing shifts when data lands. */
 .skeleton {
-  background: linear-gradient(90deg, #e9ecf1 25%, #f2f4f7 50%, #e9ecf1 75%);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-low) 25%,
+    color-mix(in srgb, var(--color-surface-low), white 60%) 50%,
+    var(--color-surface-low) 75%
+  );
   background-size: 400% 100%;
   animation: shimmer 1.2s ease-in-out infinite;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   height: 12px;
 }
+
 @keyframes shimmer {
   from {
     background-position: 100% 0;
   }
+
   to {
     background-position: 0 0;
   }
 }
 
+/* A reader who has asked for reduced motion gets state changes without the
+   movement — colour and opacity still update, but instantly. */
 @media (prefers-reduced-motion: reduce) {
-  .spinner,
-  .skeleton {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -507,22 +634,26 @@ a:hover {
   z-index: 60;
   max-width: 360px;
 }
+
 .toast {
   padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--color-text);
   color: #fff;
-  box-shadow: 0 4px 14px rgb(20 25 35 / 22%);
+  box-shadow: var(--elevation-2);
   display: flex;
   gap: var(--space-3);
   align-items: flex-start;
 }
+
 .toast--error {
   background: var(--color-danger);
 }
+
 .toast--success {
   background: var(--color-success);
 }
+
 .toast__close {
   background: none;
   border: none;
@@ -539,39 +670,46 @@ a:hover {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(20 25 35 / 45%);
+  background: rgb(28 27 31 / 50%);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
   z-index: 50;
 }
+
 .modal {
   background: var(--color-surface);
-  border-radius: var(--radius);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elevation-3);
   width: 100%;
   max-width: 640px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
 }
+
 .modal__header,
 .modal__footer {
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-5);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
 }
+
 .modal__header {
   border-bottom: 1px solid var(--color-border);
 }
+
 .modal__footer {
   border-top: 1px solid var(--color-border);
   justify-content: flex-end;
 }
+
 .modal__body {
-  padding: var(--space-4);
+  padding: var(--space-5);
   overflow-y: auto;
 }
 
@@ -593,9 +731,11 @@ a:hover {
     gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
   }
+
   .topbar__brand {
     flex: 1;
   }
+
   .topbar__nav {
     order: 3;
     flex-basis: 100%;
@@ -605,6 +745,11 @@ a:hover {
 @media (max-width: 640px) {
   .page {
     padding: var(--space-4) var(--space-3);
+  }
+
+  .card,
+  .kpi {
+    border-radius: var(--radius-md);
   }
 }
 
@@ -620,7 +765,13 @@ a:hover {
   color: var(--color-text-muted);
 }
 
+/* The one screen with room to be expressive: soft, oversized blurred colour
+   fields behind a glass card, in place of the flat panel used everywhere
+   else. Purely decorative, so it lives in ::before/::after rather than
+   markup. */
 .auth-page {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -629,28 +780,60 @@ a:hover {
   background: var(--color-bg);
 }
 
+.auth-page::before,
+.auth-page::after {
+  content: '';
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.auth-page::before {
+  background: var(--color-primary);
+  top: -180px;
+  left: -160px;
+}
+
+.auth-page::after {
+  background: var(--color-tertiary);
+  bottom: -200px;
+  right: -160px;
+}
+
 .auth-card {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 420px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  background: rgb(var(--color-bg-rgb) / 82%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgb(255 255 255 / 50%);
+  border-radius: var(--radius-xl);
   padding: var(--space-6);
-  box-shadow: 0 8px 28px rgb(20 25 35 / 8%);
+  box-shadow: var(--elevation-3);
 }
 
 .auth-card__brand {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--color-primary);
   margin-bottom: var(--space-5);
 }
+
 .auth-card__title {
-  font-size: 22px;
+  font-size: 26px;
+  font-weight: 500;
 }
+
 .auth-card__subtitle {
   margin: var(--space-1) 0 var(--space-5);
   color: var(--color-text-muted);
 }
+
 .auth-card__footer {
   margin-top: var(--space-5);
   padding-top: var(--space-4);
@@ -658,6 +841,7 @@ a:hover {
   text-align: center;
   color: var(--color-text-muted);
 }
+
 /* The sign-in button is the only action on this screen, so it spans the card. */
 .auth-card form .button {
   justify-content: center;
@@ -678,8 +862,8 @@ a:hover {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--color-info-bg);
-  color: var(--color-primary);
+  background: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
   font-size: 11px;
   font-weight: 600;
 }
@@ -690,6 +874,7 @@ a:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .user-menu__meta {
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--color-border);
@@ -714,6 +899,7 @@ a:hover {
   gap: var(--space-4);
   align-items: start;
 }
+
 @media (max-width: 960px) {
   .split {
     grid-template-columns: minmax(0, 1fr);
@@ -722,6 +908,42 @@ a:hover {
 
 .stack--tight {
   gap: var(--space-2);
+}
+
+/* ---------------------------------------------------------------- checkbox */
+
+.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  flex-wrap: nowrap;
+}
+
+.checkbox__input {
+  flex-shrink: 0;
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.checkbox__label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.checkbox__name {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.checkbox__desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
 }
 
 /* ------------------------------------------------------------ HR records */
@@ -733,38 +955,43 @@ a:hover {
 }
 
 /* Kanban and list are two views of one list, so the switch reads as one
-   control rather than two buttons. */
+   control rather than two buttons. The active view sits as a raised pill
+   inside a tonal track. */
 .segmented {
   display: inline-flex;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius);
-  overflow: hidden;
+  gap: 2px;
+  background: var(--color-surface-low);
+  border-radius: var(--radius-full);
+  padding: 3px;
 }
+
 .segmented__option {
   border: 0;
-  background: var(--color-surface);
+  background: none;
   font: inherit;
   font-weight: 500;
   color: var(--color-text-muted);
   padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
   cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
 }
-.segmented__option + .segmented__option {
-  border-left: 1px solid var(--color-border);
-}
+
 .segmented__option.is-active {
-  background: var(--color-primary);
-  color: #fff;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: var(--elevation-1);
 }
 
 .kanban {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 
 /* A card is a button so the whole card is clickable and reachable by keyboard,
-   not just a link inside it. */
+   not just a link inside it. It is the one card in the app that is actually
+   interactive, so it is the one that lifts on hover. */
 .kanban-card {
   display: flex;
   flex-direction: column;
@@ -776,22 +1003,33 @@ a:hover {
   color: inherit;
   cursor: pointer;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border: none;
+  border-radius: var(--radius-lg);
   padding: var(--space-4);
+  box-shadow: var(--elevation-1);
+  transition: box-shadow var(--motion-standard) var(--ease-standard), transform var(--motion-standard) var(--ease-standard);
 }
+
 .kanban-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 2px 8px rgb(20 25 35 / 8%);
+  box-shadow: var(--elevation-2);
+  transform: translateY(-2px);
 }
+
+.kanban-card:focus-visible {
+  outline: none;
+  box-shadow: var(--elevation-2), 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-primary);
+}
+
 .kanban-card__head {
   display: flex;
   gap: var(--space-3);
   align-items: center;
 }
+
 .kanban-card__name {
   font-weight: 600;
 }
+
 .kanban-card__foot {
   display: flex;
   align-items: center;
@@ -804,6 +1042,7 @@ a:hover {
   height: 36px;
   font-size: 13px;
 }
+
 .avatar--xl {
   width: 56px;
   height: 56px;
@@ -823,23 +1062,28 @@ a:hover {
   gap: var(--space-2);
   flex-wrap: wrap;
 }
+
 .smart-button {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   min-width: 90px;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
   color: var(--color-text-muted);
   font-weight: 500;
+  transition: border-color var(--motion-fast) ease, color var(--motion-fast) ease, background-color var(--motion-fast) ease;
 }
+
 .smart-button:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
+  background: rgb(var(--color-primary-rgb) / 5%);
   text-decoration: none;
 }
+
 .smart-button__count {
   font-size: 16px;
   font-weight: 600;
@@ -851,6 +1095,7 @@ a:hover {
   gap: var(--space-1);
   border-bottom: 1px solid var(--color-border);
 }
+
 .tab {
   border: 0;
   background: none;
@@ -859,12 +1104,15 @@ a:hover {
   color: var(--color-text-muted);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   margin-bottom: -1px;
+  transition: color var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
+
 .tab:hover {
   color: var(--color-text);
 }
+
 .tab.is-active {
   color: var(--color-primary);
   border-bottom-color: var(--color-primary);
@@ -899,21 +1147,24 @@ a:hover {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  border: 1px solid var(--color-border-strong);
-  background: var(--color-surface);
+  border: none;
+  background: var(--color-surface-low);
   font: inherit;
   font-weight: 500;
   color: var(--color-text-muted);
-  padding: var(--space-1) var(--space-3);
-  border-radius: 999px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-full);
   cursor: pointer;
   white-space: nowrap;
+  transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard);
 }
+
 .attendance-trigger:hover,
 .attendance-trigger[aria-expanded='true'] {
-  border-color: var(--color-primary);
-  color: var(--color-text);
+  background: var(--color-secondary-container);
+  color: var(--color-on-secondary-container);
 }
+
 .attendance-trigger__label {
   font-variant-numeric: tabular-nums;
 }
@@ -926,29 +1177,31 @@ a:hover {
   border-radius: 50%;
   background: var(--color-danger);
 }
+
 .status-dot--on {
   background: var(--color-success);
 }
 
 .attendance-panel {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   right: 0;
   min-width: 260px;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgb(20 25 35 / 12%);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-2);
   padding: var(--space-4);
   z-index: 30;
 }
+
 .attendance-panel__head {
   display: flex;
   flex-direction: column;
 }
+
 .attendance-panel__row {
   display: flex;
   align-items: baseline;
@@ -958,6 +1211,7 @@ a:hover {
   border-top: 1px solid var(--color-border);
   font-variant-numeric: tabular-nums;
 }
+
 .attendance-panel .button {
   justify-content: center;
 }
@@ -969,17 +1223,20 @@ a:hover {
   flex-wrap: wrap;
   gap: var(--space-6);
 }
+
 .stat {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
 }
+
 .stat__label {
   color: var(--color-text-muted);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+
 .stat__value {
   font-size: 16px;
   font-weight: 600;
@@ -991,32 +1248,38 @@ a:hover {
 .kpi-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
+
 .kpi {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-1);
+  padding: var(--space-5);
 }
+
 .kpi__label {
   color: var(--color-text-muted);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
+
 .kpi__value {
   font-size: 24px;
   font-weight: 600;
   margin-top: var(--space-1);
   font-variant-numeric: tabular-nums;
 }
+
 .kpi__value--good {
   color: var(--color-success);
 }
+
 .kpi__value--warn {
   color: var(--color-warning);
 }
+
 .kpi__hint {
   color: var(--color-text-muted);
   margin-top: var(--space-1);
@@ -1035,30 +1298,35 @@ a:hover {
   flex-direction: column;
   gap: var(--space-2);
 }
+
 .bars__row {
   display: grid;
   grid-template-columns: minmax(80px, 1fr) 3fr minmax(70px, auto);
   align-items: center;
   gap: var(--space-3);
 }
+
 .bars__label {
   color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .bars__track {
-  background: var(--color-bg);
-  border-radius: 999px;
+  background: var(--color-surface-low);
+  border-radius: var(--radius-full);
   height: 10px;
   overflow: hidden;
 }
+
 .bars__fill {
   display: block;
   height: 100%;
   background: var(--color-primary);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
+
 .bars__value {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -1069,6 +1337,7 @@ a:hover {
   height: 120px;
   overflow: visible;
 }
+
 .trend__labels {
   display: flex;
   justify-content: space-between;
@@ -1079,16 +1348,19 @@ a:hover {
 .split-bar {
   display: flex;
   height: 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   overflow: hidden;
-  background: var(--color-bg);
+  background: var(--color-surface-low);
 }
+
 .split-bar__part--success {
   background: var(--color-success);
 }
+
 .split-bar__part--info {
   background: var(--color-primary);
 }
+
 .split-bar__part--default {
   background: var(--color-border-strong);
 }
@@ -1099,17 +1371,21 @@ a:hover {
   gap: var(--space-2);
   color: var(--color-text-muted);
 }
+
 .legend__dot {
   width: 9px;
   height: 9px;
   border-radius: 2px;
 }
+
 .legend__dot--success {
   background: var(--color-success);
 }
+
 .legend__dot--info {
   background: var(--color-primary);
 }
+
 .legend__dot--default {
   background: var(--color-border-strong);
 }
@@ -1118,17 +1394,20 @@ a:hover {
 .alert {
   border-left: 3px solid var(--color-border-strong);
   padding: var(--space-2) var(--space-3);
-  border-radius: 0 var(--radius) var(--radius) 0;
-  background: var(--color-bg);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  background: var(--color-surface-low);
 }
+
 .alert--danger {
   border-left-color: var(--color-danger);
   background: var(--color-danger-bg);
 }
+
 .alert--warning {
   border-left-color: var(--color-warning);
   background: var(--color-warning-bg);
 }
+
 .alert--success {
   border-left-color: var(--color-success);
   background: var(--color-success-bg);

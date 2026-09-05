@@ -68,10 +68,18 @@ export function SelectInput({ label, error, hint, required, options = [], placeh
 
 export function Checkbox({ label, checked, onChange, ...rest }) {
   const id = useId();
+  // Split "Role Name — Description" into two parts for better visual hierarchy
+  const dashIndex = label.indexOf(' — ');
+  const roleName = dashIndex !== -1 ? label.slice(0, dashIndex) : label;
+  const roleDesc = dashIndex !== -1 ? label.slice(dashIndex + 3) : null;
+
   return (
-    <div className="row">
-      <input id={id} type="checkbox" checked={checked} onChange={onChange} {...rest} />
-      <label htmlFor={id}>{label}</label>
+    <div className="checkbox">
+      <input id={id} type="checkbox" className="checkbox__input" checked={checked} onChange={onChange} {...rest} />
+      <label htmlFor={id} className="checkbox__label">
+        <span className="checkbox__name">{roleName}</span>
+        {roleDesc && <span className="checkbox__desc">{roleDesc}</span>}
+      </label>
     </div>
   );
 }
