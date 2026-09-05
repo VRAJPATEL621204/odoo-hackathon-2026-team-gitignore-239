@@ -1,0 +1,9 @@
+{
+  "paidLeave": "Annual / Paid leave provides 18 to 24 days per calendar year, accrued monthly (1.5 - 2 days/month). Unused paid leaves can be carried forward up to a maximum of 30 days into the next calendar year.",
+  "sickLeave": "Employees are entitled to 10 days of paid sick/medical leave per year. Consecutive absences of 3 days or more require a verified medical certificate from a licensed practitioner.",
+  "casualLeave": "Casual leave provides 5-7 days per year for unplanned or urgent personal affairs. Casual leave cannot be combined with paid leave without prior managerial approval.",
+  "compOff": "Compensatory off (comp-off) is credited when an employee works on a scheduled weekend or public holiday with manager approval. Must be redeemed within 90 days.",
+  "maternityPaternity": "Maternity leave provides 26 weeks of paid leave for female employees. Paternity leave provides 2 weeks of paid leave for new fathers, to be availed within 6 months of childbirth.",
+  "leaveApproval": "Leave requests must be submitted through the portal or AI assistant. Requests up to 3 days require 24 hours advance notice; requests greater than 5 days require 2 weeks advance notice.",
+  "leaveEncashment": "Encashment of accumulated annual leave beyond 15 days is permitted once per year during the December payroll cycle, calculated on basic pay."
+}

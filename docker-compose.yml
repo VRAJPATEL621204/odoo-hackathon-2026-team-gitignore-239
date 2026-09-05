@@ -55,9 +55,16 @@ services:
       WRITE_RATE_LIMIT_IP_WINDOW: ${WRITE_RATE_LIMIT_IP_WINDOW:-60}
       WRITE_RATE_LIMIT_USER_MAX: ${WRITE_RATE_LIMIT_USER_MAX:-30}
       WRITE_RATE_LIMIT_USER_WINDOW: ${WRITE_RATE_LIMIT_USER_WINDOW:-60}
+      # AI Chatbot Configuration
+      CHATBOT_PORT: 4500
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      PEOPLEPAY360_API_BASE_URL: http://localhost:5000
     ports:
       - "5173:5000"
       - "5000:5000"
+      - "4500:4500"
     depends_on:
       postgres:
         condition: service_healthy

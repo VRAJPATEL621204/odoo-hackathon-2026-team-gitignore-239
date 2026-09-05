@@ -1,0 +1,9 @@
+{
+  "grossSalary": "Gross salary is your total monthly earnings before any deductions, consisting of Basic Salary (40-50%), House Rent Allowance (HRA), Special Allowance, and Performance Bonus.",
+  "netSalary": "Net salary (take-home pay) is what is deposited directly into your bank account after subtracting statutory deductions (TDS, PF, ESI, Professional Tax) from gross salary.",
+  "payCycle": "Salaries are processed on the 28th of every month and credited directly to the employee's registered bank account on the last working day of the month.",
+  "pf": "Provident Fund (PF) is 12% of your basic pay contributed by you, with an equal 12% matching contribution by the employer towards your retirement fund (EPFO).",
+  "tds": "Tax Deducted at Source (TDS) is calculated annually based on your declared tax regime (New vs Old) and investment proofs, deducted proportionally each month.",
+  "payslipAccess": "Payslips are generated on the last day of each calendar month and can be viewed or downloaded as a password-protected PDF from the Payroll section.",
+  "taxDeclaration": "Investment declarations for tax savings (Section 80C, 80D, NPS, HRA rent receipts) must be submitted through the portal between January 1st and February 15th."
+}
