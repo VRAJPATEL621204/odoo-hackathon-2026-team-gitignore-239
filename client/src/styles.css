@@ -1,0 +1,1135 @@
+/*
+ * PeoplePay360 stylesheet.
+ *
+ * One hand-written file, system fonts, no CSS framework. The UI exists to make
+ * the business logic legible, so the palette is deliberately flat and the
+ * emphasis is on tables, forms, statuses and results.
+ */
+
+:root {
+  --color-bg: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-border: #d8dce3;
+  --color-border-strong: #b6bcc7;
+  --color-text: #1c2331;
+  --color-text-muted: #5c6675;
+  --color-primary: #2f5bea;
+  --color-primary-hover: #2447c4;
+  --color-danger: #c0392f;
+  --color-danger-bg: #fdeceb;
+  --color-success: #1e7d43;
+  --color-success-bg: #e8f5ed;
+  --color-warning: #9a6400;
+  --color-warning-bg: #fdf3e0;
+  --color-info-bg: #eaf0fe;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  --radius: 6px;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+h1 {
+  font-size: 20px;
+}
+h2 {
+  font-size: 16px;
+}
+h3 {
+  font-size: 14px;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------- layout */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-2) var(--space-5);
+  min-height: 52px;
+  flex-wrap: wrap;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.topbar__brand {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.topbar__brand:hover {
+  text-decoration: none;
+}
+
+/* No overflow property here on purpose. Setting overflow on one axis makes the
+   other axis non-visible too, which would clip the dropdown panels. The nav
+   wraps onto a second line on narrow screens instead of scrolling. */
+.topbar__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  white-space: nowrap;
+}
+
+.nav-link {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.nav-link:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-decoration: none;
+}
+.nav-link.is-active {
+  background: var(--color-info-bg);
+  color: var(--color-primary);
+}
+
+/* Dropdown menus (Employees, Time Off, Payroll, account). Open state lives in
+   React rather than in <details>, because only one may be open at a time and a
+   click anywhere outside has to close it. */
+.nav-menu {
+  position: relative;
+}
+.nav-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.nav-menu__trigger:hover,
+.nav-menu__trigger[aria-expanded='true'] {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+/* Highlighted while the page on screen belongs to this group, so the user can
+   see which menu they came from. */
+.nav-menu__trigger.is-active {
+  background: var(--color-info-bg);
+  color: var(--color-primary);
+}
+.nav-menu__items {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 190px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgb(20 25 35 / 12%);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+}
+.nav-menu__items .nav-link {
+  padding: var(--space-2) var(--space-3);
+}
+
+.page {
+  flex: 1;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: var(--space-5);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+.page-header__subtitle {
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+.page-header__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.text-right {
+  text-align: right;
+}
+
+/* --------------------------------------------------------------- controls */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  min-height: 34px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.button:hover:not(:disabled) {
+  background: var(--color-bg);
+}
+.button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.button--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.button--primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+.button--danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+}
+.button--small {
+  min-height: 28px;
+  padding: var(--space-1) var(--space-3);
+  font-size: 13px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.field__label {
+  font-weight: 500;
+  color: var(--color-text);
+}
+.field__hint {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.field__error {
+  color: var(--color-danger);
+  font-size: 12px;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  min-height: 34px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+  border-color: var(--color-primary);
+}
+.input--invalid,
+.select--invalid,
+.textarea--invalid {
+  border-color: var(--color-danger);
+}
+.textarea {
+  min-height: 72px;
+  resize: vertical;
+}
+
+/* ----------------------------------------------------------------- tables */
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th,
+.table td {
+  padding: var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.table th {
+  background: var(--color-bg);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  position: sticky;
+  top: 0;
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table tbody tr:hover td {
+  background: var(--color-bg);
+}
+.table__cell--numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- statuses */
+
+.badge {
+  display: inline-block;
+  padding: 2px var(--space-2);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+.badge--success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+  border-color: transparent;
+}
+.badge--warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+  border-color: transparent;
+}
+.badge--danger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-color: transparent;
+}
+.badge--info {
+  background: var(--color-info-bg);
+  color: var(--color-primary);
+  border-color: transparent;
+}
+
+.notice {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+}
+.notice--error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+.notice--warning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+.notice--success {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.notice--info {
+  background: var(--color-info-bg);
+  color: var(--color-primary);
+}
+
+.empty-state {
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+.empty-state__title {
+  color: var(--color-text);
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+/* --------------------------------------------------------------- feedback */
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 600ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Skeletons are sized to the final content so nothing shifts when data lands. */
+.skeleton {
+  background: linear-gradient(90deg, #e9ecf1 25%, #f2f4f7 50%, #e9ecf1 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+  border-radius: 4px;
+  height: 12px;
+}
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner,
+  .skeleton {
+    animation: none;
+  }
+}
+
+.toast-stack {
+  position: fixed;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  z-index: 60;
+  max-width: 360px;
+}
+.toast {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--color-text);
+  color: #fff;
+  box-shadow: 0 4px 14px rgb(20 25 35 / 22%);
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.toast--error {
+  background: var(--color-danger);
+}
+.toast--success {
+  background: var(--color-success);
+}
+.toast__close {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.8;
+}
+
+/* ---------------------------------------------------------------- modal */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(20 25 35 / 45%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: 50;
+}
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 640px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal__header,
+.modal__footer {
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.modal__header {
+  border-bottom: 1px solid var(--color-border);
+}
+.modal__footer {
+  border-top: 1px solid var(--color-border);
+  justify-content: flex-end;
+}
+.modal__body {
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+/* -------------------------------------------------------------- pagination */
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  flex-wrap: wrap;
+}
+
+/* Below this width the nav cannot sit beside the brand without collapsing into
+   a narrow column, so it drops to its own full-width row underneath. */
+@media (max-width: 760px) {
+  .topbar {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+  .topbar__brand {
+    flex: 1;
+  }
+  .topbar__nav {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--space-4) var(--space-3);
+  }
+}
+
+/* ------------------------------------------------------- sign in and access */
+
+/* Shown while the session check is in flight, so the login screen never
+   flashes in front of an already signed-in user. */
+.auth-splash {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: var(--color-text-muted);
+}
+
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-5);
+  background: var(--color-bg);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-6);
+  box-shadow: 0 8px 28px rgb(20 25 35 / 8%);
+}
+
+.auth-card__brand {
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: var(--space-5);
+}
+.auth-card__title {
+  font-size: 22px;
+}
+.auth-card__subtitle {
+  margin: var(--space-1) 0 var(--space-5);
+  color: var(--color-text-muted);
+}
+.auth-card__footer {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+/* The sign-in button is the only action on this screen, so it spans the card. */
+.auth-card form .button {
+  justify-content: center;
+  width: 100%;
+}
+
+/* The user menu hangs off the right edge, so its panel is right-aligned to
+   stay inside the viewport. */
+.nav-menu--right .nav-menu__items {
+  left: auto;
+  right: 0;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-info-bg);
+  color: var(--color-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.user-menu__name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-menu__meta {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-1);
+}
+
+/* Sign out is an action rather than navigation, so it is a button styled to
+   match the links it sits beside. */
+.nav-link--button {
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* List beside form, as on the user management screen. Collapses to one column
+   on narrow screens so the form never becomes unusably thin. */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.stack--tight {
+  gap: var(--space-2);
+}
+
+/* ------------------------------------------------------------ HR records */
+
+/* Two-column form grid. Collapses to one column when there is no room for a
+   label and its input side by side. */
+.grid--2 {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+/* Kanban and list are two views of one list, so the switch reads as one
+   control rather than two buttons. */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.segmented__option {
+  border: 0;
+  background: var(--color-surface);
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+}
+.segmented__option + .segmented__option {
+  border-left: 1px solid var(--color-border);
+}
+.segmented__option.is-active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.kanban {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+/* A card is a button so the whole card is clickable and reachable by keyboard,
+   not just a link inside it. */
+.kanban-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 118px;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+.kanban-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgb(20 25 35 / 8%);
+}
+.kanban-card__head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+.kanban-card__name {
+  font-weight: 600;
+}
+.kanban-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.avatar--large {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+.avatar--xl {
+  width: 56px;
+  height: 56px;
+  font-size: 18px;
+}
+
+/* The header of a record: who it is, and the related records reached from it. */
+.record-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.smart-buttons {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.smart-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 90px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+.smart-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.smart-button__count {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+}
+.tab {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.tab:hover {
+  color: var(--color-text);
+}
+.tab.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* An action that reads as a link but is a button, because it changes state on
+   this page rather than navigating. */
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Inputs inside a table row are the row, so they lose their own margins. */
+.table .input,
+.table .select {
+  min-width: 0;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------- attendance */
+
+.attendance-widget {
+  position: relative;
+}
+
+.attendance-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font: inherit;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.attendance-trigger:hover,
+.attendance-trigger[aria-expanded='true'] {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+.attendance-trigger__label {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Red when no session is running, green while checked in — the whole point of
+   the widget is that this is readable without opening it. */
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-danger);
+}
+.status-dot--on {
+  background: var(--color-success);
+}
+
+.attendance-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgb(20 25 35 / 12%);
+  padding: var(--space-4);
+  z-index: 30;
+}
+.attendance-panel__head {
+  display: flex;
+  flex-direction: column;
+}
+.attendance-panel__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+}
+.attendance-panel .button {
+  justify-content: center;
+}
+
+/* A row of read-only figures above a form: what the record derived, before the
+   inputs that produced it. */
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.stat__label {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.stat__value {
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* -------------------------------------------------------------- dashboard */
+
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--space-3);
+}
+.kpi {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+.kpi__label {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.kpi__value {
+  font-size: 24px;
+  font-weight: 600;
+  margin-top: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+.kpi__value--good {
+  color: var(--color-success);
+}
+.kpi__value--warn {
+  color: var(--color-warning);
+}
+.kpi__hint {
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
+
+/* Two columns of blocks, collapsing to one where a chart would be unreadable. */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.bars__row {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) 3fr minmax(70px, auto);
+  align-items: center;
+  gap: var(--space-3);
+}
+.bars__label {
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bars__track {
+  background: var(--color-bg);
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+.bars__fill {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+  border-radius: 999px;
+}
+.bars__value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend {
+  width: 100%;
+  height: 120px;
+  overflow: visible;
+}
+.trend__labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.split-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+.split-bar__part--success {
+  background: var(--color-success);
+}
+.split-bar__part--info {
+  background: var(--color-primary);
+}
+.split-bar__part--default {
+  background: var(--color-border-strong);
+}
+
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}
+.legend__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+.legend__dot--success {
+  background: var(--color-success);
+}
+.legend__dot--info {
+  background: var(--color-primary);
+}
+.legend__dot--default {
+  background: var(--color-border-strong);
+}
+
+/* An alert states one thing needing attention and links to where it is fixed. */
+.alert {
+  border-left: 3px solid var(--color-border-strong);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--color-bg);
+}
+.alert--danger {
+  border-left-color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+.alert--warning {
+  border-left-color: var(--color-warning);
+  background: var(--color-warning-bg);
+}
+.alert--success {
+  border-left-color: var(--color-success);
+  background: var(--color-success-bg);
+}

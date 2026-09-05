@@ -17,6 +17,22 @@ services:
       timeout: 5s
       retries: 5
 
+  # Local SMTP server that captures every message instead of delivering it.
+  # The payslip email feature is therefore a real SMTP send with real PDF
+  # attachments, demoable offline, with no external mail provider involved.
+  # Sent mail is readable in the web UI at http://localhost:8025.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: peoplepay360_mailpit
+    restart: always
+    ports:
+      - "${SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_UI_PORT:-8025}:8025"
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
 volumes:
   postgres_data:
     driver: local
