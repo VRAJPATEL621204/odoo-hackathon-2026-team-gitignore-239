@@ -7,7 +7,7 @@ import { useAuth, PERMISSIONS } from '../auth/AuthProvider.jsx';
 import { useToast } from '../components/ToastProvider.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button } from '../components/Button.jsx';
-import { Checkbox, SelectInput, TextArea, TextInput } from '../components/Field.jsx';
+import { Checkbox, NumberInput, SelectInput, TextArea, TextInput } from '../components/Field.jsx';
 import { ErrorState, Notice } from '../components/Feedback.jsx';
 import {
   COMPUTATIONS,
@@ -102,6 +102,9 @@ export function RuleForm() {
 
   const set = (field) => (event) =>
     setForm((current) => ({ ...current, [field]: event.target.value }));
+
+  const setNumber = (field) => (values) =>
+    setForm((current) => ({ ...current, [field]: values.value }));
 
   /** Checks the expression on the server, using the same parser payroll uses. */
   async function checkFormula() {
@@ -214,28 +217,29 @@ export function RuleForm() {
               onChange={set('category')}
             />
 
-            <TextInput
+            <NumberInput
               label="Sequence"
-              type="number"
-              min="1"
               required
+              decimalScale={0}
+              allowNegative={false}
+              isAllowed={(values) => values.floatValue === undefined || values.floatValue <= 9999}
               hint="Rules run from lowest to highest. A rule can only read the ones before it."
               value={form.sequence}
               error={fieldErrors.sequence}
               disabled={!editable}
-              onChange={set('sequence')}
+              onValueChange={setNumber('sequence')}
             />
 
-            <TextInput
+            <NumberInput
               label="Quantity"
-              type="number"
-              min="0"
-              step="0.5"
+              decimalScale={2}
+              allowNegative={false}
+              isAllowed={(values) => values.floatValue === undefined || values.floatValue <= 1000}
               hint="Multiplies whatever the computation produced."
               value={form.quantity}
               error={fieldErrors.quantity}
               disabled={!editable}
-              onChange={set('quantity')}
+              onValueChange={setNumber('quantity')}
             />
           </div>
         </div>
@@ -254,31 +258,37 @@ export function RuleForm() {
           />
 
           {form.computation === 'FIXED' && (
-            <TextInput
+            <NumberInput
               label="Fixed Amount"
-              type="number"
-              step="0.01"
               required
-              hint="The exact value, such as a meal allowance of 2,000."
+              thousandSeparator=","
+              thousandsGroupStyle="lakh"
+              prefix="₹"
+              decimalScale={2}
+              allowNegative
+              isAllowed={(values) => values.floatValue === undefined || Math.abs(values.floatValue) <= 10000000}
+              hint="The exact value, such as a meal allowance of 2,000. Negative for a deduction."
               value={form.amount}
               error={fieldErrors.amount}
               disabled={!editable}
-              onChange={set('amount')}
+              onValueChange={setNumber('amount')}
             />
           )}
 
           {form.computation === 'PERCENTAGE' && (
             <div className="grid grid--2">
-              <TextInput
+              <NumberInput
                 label="Percentage"
-                type="number"
-                step="0.01"
                 required
-                hint="50 means 50%, not 0.5."
+                suffix="%"
+                decimalScale={2}
+                allowNegative
+                isAllowed={(values) => values.floatValue === undefined || Math.abs(values.floatValue) <= 1000}
+                hint="50 means 50%, not 0.5. Negative for a deduction."
                 value={form.percentage}
                 error={fieldErrors.percentage}
                 disabled={!editable}
-                onChange={set('percentage')}
+                onValueChange={setNumber('percentage')}
               />
               <SelectInput
                 label="Percentage of"

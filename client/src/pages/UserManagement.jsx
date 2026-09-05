@@ -9,6 +9,7 @@ import { Button } from '../components/Button.jsx';
 import { DataTable, Pagination } from '../components/DataTable.jsx';
 import { Checkbox, SelectInput, TextInput } from '../components/Field.jsx';
 import { Notice, StatusBadge } from '../components/Feedback.jsx';
+import { validateEmail } from '../lib/validators.js';
 
 /**
  * Administrator screen for user accounts.
@@ -96,9 +97,16 @@ export function UserManagement() {
 
   async function onSubmit(event) {
     event.preventDefault();
+    setFormError(null);
+
+    const emailError = validateEmail(form.email, { required: true });
+    if (emailError) {
+      setFieldErrors({ email: emailError });
+      return;
+    }
+
     setSaving(true);
     setFieldErrors({});
-    setFormError(null);
 
     try {
       if (editing) {
@@ -272,6 +280,12 @@ export function UserManagement() {
             value={form.email}
             error={fieldErrors.email}
             onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+            onBlur={() =>
+              setFieldErrors((current) => ({
+                ...current,
+                email: validateEmail(form.email, { required: true }) ?? undefined,
+              }))
+            }
           />
 
           <TextInput

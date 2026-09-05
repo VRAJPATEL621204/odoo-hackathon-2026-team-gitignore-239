@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthProvider.jsx';
 import { Button } from '../components/Button.jsx';
 import { TextInput } from '../components/Field.jsx';
 import { Notice } from '../components/Feedback.jsx';
+import { validateEmail } from '../lib/validators.js';
 
 /**
  * The sign-in screen.
@@ -30,8 +31,15 @@ export function Login() {
 
   async function onSubmit(event) {
     event.preventDefault();
-    setPending(true);
     setFormError(null);
+
+    const emailError = validateEmail(email, { required: true });
+    if (emailError) {
+      setFieldErrors({ email: emailError });
+      return;
+    }
+
+    setPending(true);
     setFieldErrors({});
 
     try {
@@ -67,6 +75,12 @@ export function Login() {
             value={email}
             error={fieldErrors.email}
             onChange={(event) => setEmail(event.target.value)}
+            onBlur={() =>
+              setFieldErrors((current) => ({
+                ...current,
+                email: validateEmail(email, { required: true }) ?? undefined,
+              }))
+            }
             autoFocus
             required
           />

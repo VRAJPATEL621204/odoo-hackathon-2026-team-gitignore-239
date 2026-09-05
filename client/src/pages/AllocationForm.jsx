@@ -9,7 +9,7 @@ import { useAuth, PERMISSIONS } from '../auth/AuthProvider.jsx';
 import { useToast } from '../components/ToastProvider.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button } from '../components/Button.jsx';
-import { SelectInput, TextArea, TextInput } from '../components/Field.jsx';
+import { NumberInput, SelectInput, TextArea, TextInput } from '../components/Field.jsx';
 import { ErrorState, Notice, StatusBadge } from '../components/Feedback.jsx';
 import { formatDate, toDateInput } from '../lib/format.js';
 import { timeOffStatusLabel, timeOffStatusTone } from '../lib/timeoff.js';
@@ -67,6 +67,9 @@ export function AllocationForm() {
 
   const set = (field) => (event) =>
     setForm((current) => ({ ...current, [field]: event.target.value }));
+
+  const setNumber = (field) => (values) =>
+    setForm((current) => ({ ...current, [field]: values.value }));
 
   const allocation = record.data;
   const unit = unitLabel(byId(form.typeId)?.unit ?? allocation?.type?.unit ?? 'DAYS');
@@ -217,16 +220,16 @@ export function AllocationForm() {
               onChange={set('typeId')}
             />
 
-            <TextInput
+            <NumberInput
               label={`Allocated (${unit})`}
-              type="number"
-              min="0.5"
-              step="0.5"
               required
+              decimalScale={2}
+              allowNegative={false}
+              isAllowed={(values) => values.floatValue === undefined || values.floatValue <= 5000}
               value={form.amount}
               error={fieldErrors.amount}
               disabled={!editable}
-              onChange={set('amount')}
+              onValueChange={setNumber('amount')}
             />
 
             <TextInput

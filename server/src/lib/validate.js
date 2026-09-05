@@ -53,6 +53,18 @@ export class Validator {
     return this.values[field];
   }
 
+  /** Indian numbers only: +91 followed by a 10-digit mobile number starting 6-9. */
+  phone(field, { required = false, max = 40 } = {}) {
+    const value = this.string(field, { required, max });
+    if (value === undefined) return undefined;
+    const compact = value.replace(/[\s-]/g, '');
+    if (!/^\+91[6-9]\d{9}$/.test(compact)) {
+      return this.#fail(field, 'Enter a valid Indian phone number, e.g. +91 98765 43210.');
+    }
+    this.values[field] = value;
+    return value;
+  }
+
   number(field, { required = false, min, max, integer = false } = {}) {
     if (!this.#present(field)) {
       if (required) this.#fail(field, 'This field is required.');
@@ -63,6 +75,17 @@ export class Validator {
     if (integer && !Number.isInteger(value)) return this.#fail(field, 'Must be a whole number.');
     if (min !== undefined && value < min) return this.#fail(field, `Must be at least ${min}.`);
     if (max !== undefined && value > max) return this.#fail(field, `Must be at most ${max}.`);
+    this.values[field] = value;
+    return value;
+  }
+
+  /** Letters, digits, spaces and hyphens, e.g. an IBAN or a routing/account pair. */
+  bankAccount(field, { required = false, max = 60 } = {}) {
+    const value = this.string(field, { required, min: 5, max });
+    if (value === undefined) return undefined;
+    if (!/^[A-Za-z0-9\s-]+$/.test(value)) {
+      return this.#fail(field, 'Enter a valid bank account number.');
+    }
     this.values[field] = value;
     return value;
   }

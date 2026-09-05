@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { NumericFormat } from 'react-number-format';
 
 /**
  * Form controls.
@@ -28,6 +29,29 @@ export function TextInput({ label, error, hint, required, ...rest }) {
       <input
         className={`input${error ? ' input--invalid' : ''}`}
         aria-invalid={error ? 'true' : undefined}
+        {...rest}
+      />
+    </Field>
+  );
+}
+
+/**
+ * A numeric field backed by `NumericFormat`.
+ *
+ * Formatting (thousand separators, a currency prefix, a percentage suffix,
+ * decimal places) is display-only: `onValueChange` hands back the unformatted
+ * numeric string via `values.value`, which is what callers should keep in
+ * form state and send to the API, exactly as the native `type="number"`
+ * inputs this replaces did with `event.target.value`.
+ */
+export function NumberInput({ label, error, hint, required, value, onValueChange, ...rest }) {
+  return (
+    <Field label={label} error={error} hint={hint} required={required}>
+      <NumericFormat
+        className={`input${error ? ' input--invalid' : ''}`}
+        aria-invalid={error ? 'true' : undefined}
+        value={value}
+        onValueChange={onValueChange}
         {...rest}
       />
     </Field>
