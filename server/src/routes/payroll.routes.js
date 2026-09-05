@@ -13,8 +13,7 @@ import { payslipFilename, renderPayslipPdf } from '../lib/payslipPdf.js';
 import { sendPayslipEmail } from '../lib/mailer.js';
 import { env } from '../lib/env.js';
 import { createConcurrencyLock } from '../lib/concurrencyLock.js';
-import { createRateLimiter } from '../lib/rateLimit.js';
-import { tooManyRequests } from '../lib/errors.js';
+import { createRateLimiter, enforceLimit } from '../lib/rateLimit.js';
 import {
   createRule,
   createStructure,
@@ -66,17 +65,14 @@ function userResourceKey(req, id) {
 }
 
 /**
- * Enforces a cooldown key, throwing 429 when it is still active.
+ * Enforces a cooldown key via the shared `enforceLimit` (same headers and
+ * structured logging as every other rate-limited layer in the app).
  *
  * Cooldowns key by resource, not by user, so two different admins clicking
  * the same button back to back cannot double the work either.
  */
 function enforceCooldown(limiter, key, res, message) {
-  const result = limiter.check(key);
-  if (!result.allowed) {
-    res.setHeader('Retry-After', result.retryAfterSeconds);
-    throw tooManyRequests(message, 'ACTION_COOLDOWN', result.retryAfterSeconds);
-  }
+  enforceLimit(res, limiter, key, { code: 'ACTION_COOLDOWN', message, layer: 'ACTION_COOLDOWN', actor: key });
 }
 
 /** Acquires a single-process lock for one user's payslip PDF generation. */

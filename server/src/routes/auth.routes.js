@@ -5,8 +5,7 @@ import { validator } from '../lib/validate.js';
 import { env } from '../lib/env.js';
 import { clearSessionCookie, setSessionCookie } from '../lib/cookies.js';
 import { signSession } from '../lib/token.js';
-import { createRateLimiter, rateLimit } from '../lib/rateLimit.js';
-import { tooManyRequests } from '../lib/errors.js';
+import { createRateLimiter, enforceLimit, rateLimit } from '../lib/rateLimit.js';
 import { authenticate, sessionPayload } from '../services/auth.service.js';
 import { requireAuth } from '../middleware/auth.js';
 import { ROLE_DEFINITIONS } from '../domain/roles.js';
@@ -51,25 +50,19 @@ authRouter.post(
 
     const deviceKey = req.deviceId ?? 'unknown';
 
-    const accountLimit = loginAccountLimiter.check(email);
-    if (!accountLimit.allowed) {
-      res.setHeader('Retry-After', accountLimit.retryAfterSeconds);
-      throw tooManyRequests(
-        `Too many sign-in attempts for this account. Try again in ${accountLimit.retryAfterSeconds} seconds.`,
-        'ACCOUNT_RATE_LIMIT',
-        accountLimit.retryAfterSeconds
-      );
-    }
+    enforceLimit(res, loginAccountLimiter, email, {
+      code: 'ACCOUNT_RATE_LIMIT',
+      message: 'Too many sign-in attempts for this account. Try again shortly.',
+      layer: 'LOGIN_ACCOUNT',
+      actor: email,
+    });
 
-    const deviceLimit = loginDeviceLimiter.check(deviceKey);
-    if (!deviceLimit.allowed) {
-      res.setHeader('Retry-After', deviceLimit.retryAfterSeconds);
-      throw tooManyRequests(
-        `Too many sign-in attempts from this browser. Try again in ${deviceLimit.retryAfterSeconds} seconds.`,
-        'DEVICE_RATE_LIMIT',
-        deviceLimit.retryAfterSeconds
-      );
-    }
+    enforceLimit(res, loginDeviceLimiter, deviceKey, {
+      code: 'DEVICE_RATE_LIMIT',
+      message: 'Too many sign-in attempts from this browser. Try again shortly.',
+      layer: 'LOGIN_DEVICE',
+      actor: deviceKey,
+    });
 
     const user = await authenticate(email, password);
     loginAccountLimiter.reset(email);

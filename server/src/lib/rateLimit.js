@@ -54,26 +54,51 @@ export function createRateLimiter({ limit, windowMs }) {
   };
 }
 
-/** Express middleware around the fixed-window limiter. */
+/**
+ * Checks a limiter and enforces it. This is the one enforcement path every
+ * rate-limited layer in the app goes through — login, the sitewide write
+ * limiter, and the payroll action cooldowns — so the response contract and
+ * the audit trail are identical everywhere instead of each call site
+ * rolling its own headers and logging.
+ *
+ * The standard `RateLimit-*` response headers (IETF draft-ietf-httpapi-
+ * ratelimit-headers) are set on every call, allowed or not, so a
+ * well-behaved client can see its remaining budget and back off before it
+ * ever gets a 429 — not just find out after the fact. A rejection also logs
+ * one structured line, so a real deployment can alert on repeated hits
+ * instead of only ever seeing them in a support ticket.
+ */
+export function enforceLimit(res, limiter, key, { code, message, layer, actor }) {
+  const result = limiter.check(key);
+  res.setHeader('RateLimit-Limit', result.limit);
+  res.setHeader('RateLimit-Remaining', result.remaining);
+  res.setHeader('RateLimit-Reset', Math.ceil(result.resetAt / 1000));
+
+  if (!result.allowed) {
+    res.setHeader('Retry-After', result.retryAfterSeconds);
+    console.warn(
+      `[RATE_LIMIT] layer=${layer} key=${key} actor=${actor ?? 'unknown'} allowed=false retryAfter=${result.retryAfterSeconds}`
+    );
+    throw tooManyRequests(message, code, result.retryAfterSeconds);
+  }
+
+  return result;
+}
+
+/** Express middleware around the fixed-window limiter, for the simple case
+ * of one limiter guarding one route on one key (e.g. login's IP layer). */
 export function rateLimit({ limiter, key = (req) => req.ip ?? 'unknown', message, action = 'API' }) {
   return (req, res, next) => {
-    const result = limiter.check(key(req));
-    res.setHeader('RateLimit-Limit', result.limit);
-    res.setHeader('RateLimit-Remaining', result.remaining);
-    res.setHeader('RateLimit-Reset', Math.ceil(result.resetAt / 1000));
-    if (!result.allowed) {
-      res.setHeader('Retry-After', result.retryAfterSeconds);
-      console.warn(
-        `[RATE_LIMIT] IP=${req.ip ?? 'unknown'} route=${req.originalUrl} action=${action} allowed=false retryAfter=${result.retryAfterSeconds}`
-      );
-      return next(
-        tooManyRequests(
-          message ?? 'Too many requests. Please try again later.',
-          'RATE_LIMIT_EXCEEDED',
-          result.retryAfterSeconds
-        )
-      );
+    try {
+      enforceLimit(res, limiter, key(req), {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: message ?? 'Too many requests. Please try again later.',
+        layer: action,
+        actor: req.ip ?? 'unknown',
+      });
+      next();
+    } catch (error) {
+      next(error);
     }
-    next();
   };
 }

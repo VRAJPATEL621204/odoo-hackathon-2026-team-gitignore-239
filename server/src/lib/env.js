@@ -78,6 +78,16 @@ export const env = {
   rateLimitLoginDeviceMax: integer('RATE_LIMIT_LOGIN_DEVICE_MAX', 8),
   rateLimitLoginDeviceWindow: integer('RATE_LIMIT_LOGIN_DEVICE_WINDOW', 60),
   maxBulkEmailRecipients: integer('MAX_BULK_EMAIL_RECIPIENTS', 10),
+  // A sitewide backstop on every write (POST/PUT/PATCH/DELETE) across the
+  // whole app — HR records, attendance punches, timeoff requests, user
+  // management, payroll config — anything not already covered by a more
+  // specific limiter above. Two independent keys, same reasoning as login:
+  // IP catches a script hammering the API from one machine, account catches
+  // one compromised or scripted account regardless of which IP it uses.
+  writeRateLimitIpMax: integer('WRITE_RATE_LIMIT_IP_MAX', 60),
+  writeRateLimitIpWindow: integer('WRITE_RATE_LIMIT_IP_WINDOW', 60),
+  writeRateLimitUserMax: integer('WRITE_RATE_LIMIT_USER_MAX', 30),
+  writeRateLimitUserWindow: integer('WRITE_RATE_LIMIT_USER_WINDOW', 60),
   // Per-resource cooldowns stop a button being mashed into repeated work —
   // independent of the in-flight concurrency locks, which only stop two
   // requests overlapping, not a second one arriving right after the first
