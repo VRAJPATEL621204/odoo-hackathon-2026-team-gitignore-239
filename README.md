@@ -1,0 +1,1 @@
+# odoo-hackathon-2026-team-gitignore-239
