@@ -1,11 +1,6 @@
-/**
- * A fixed-window counter used to throttle sign-in attempts.
- *
- * In-memory on purpose: the application runs as a single process, and the goal
- * is to stop password guessing against one account, not to survive a
- * distributed attack. Entries are pruned lazily on each hit so the map cannot
- * grow without bound.
- */
+import { tooManyRequests } from './errors.js';
+
+/** A small fixed-window limiter isolated for easy replacement with Redis later. */
 export function createRateLimiter({ limit, windowMs }) {
   const hits = new Map();
 
@@ -16,7 +11,7 @@ export function createRateLimiter({ limit, windowMs }) {
   }
 
   return {
-    /** Records an attempt. Returns `{ allowed, retryAfterSeconds }`. */
+    /** Records an attempt and exposes standard rate-limit metadata. */
     check(key) {
       const now = Date.now();
       prune(now);
@@ -24,22 +19,61 @@ export function createRateLimiter({ limit, windowMs }) {
       const entry = hits.get(key);
       if (!entry || entry.resetAt <= now) {
         hits.set(key, { count: 1, resetAt: now + windowMs });
-        return { allowed: true, retryAfterSeconds: 0 };
+        return {
+          allowed: true,
+          limit,
+          remaining: Math.max(0, limit - 1),
+          resetAt: now + windowMs,
+          retryAfterSeconds: 0,
+        };
       }
 
       entry.count += 1;
       if (entry.count > limit) {
         return {
           allowed: false,
+          limit,
+          remaining: 0,
+          resetAt: entry.resetAt,
           retryAfterSeconds: Math.ceil((entry.resetAt - now) / 1000),
         };
       }
-      return { allowed: true, retryAfterSeconds: 0 };
+      return {
+        allowed: true,
+        limit,
+        remaining: Math.max(0, limit - entry.count),
+        resetAt: entry.resetAt,
+        retryAfterSeconds: 0,
+      };
     },
 
     /** Clears the counter for a key after a successful attempt. */
     reset(key) {
       hits.delete(key);
     },
+  };
+}
+
+/** Express middleware around the fixed-window limiter. */
+export function rateLimit({ limiter, key = (req) => req.ip ?? 'unknown', message, action = 'API' }) {
+  return (req, res, next) => {
+    const result = limiter.check(key(req));
+    res.setHeader('RateLimit-Limit', result.limit);
+    res.setHeader('RateLimit-Remaining', result.remaining);
+    res.setHeader('RateLimit-Reset', Math.ceil(result.resetAt / 1000));
+    if (!result.allowed) {
+      res.setHeader('Retry-After', result.retryAfterSeconds);
+      console.warn(
+        `[RATE_LIMIT] IP=${req.ip ?? 'unknown'} route=${req.originalUrl} action=${action} allowed=false retryAfter=${result.retryAfterSeconds}`
+      );
+      return next(
+        tooManyRequests(
+          message ?? 'Too many requests. Please try again later.',
+          'RATE_LIMIT_EXCEEDED',
+          result.retryAfterSeconds
+        )
+      );
+    }
+    next();
   };
 }

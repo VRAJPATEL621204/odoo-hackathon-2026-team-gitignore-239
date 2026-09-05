@@ -3,13 +3,21 @@ import { Link, useParams } from 'react-router-dom';
 
 import { api } from '../api/client.js';
 import { useResource } from '../hooks/useResource.js';
+import { useCooldown } from '../hooks/useCooldown.js';
 import { useAuth, PERMISSIONS } from '../auth/AuthProvider.jsx';
 import { useToast } from '../components/ToastProvider.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
-import { Button } from '../components/Button.jsx';
+import { ActionButton } from '../components/ActionButton.jsx';
 import { ErrorState, Notice, StatusBadge } from '../components/Feedback.jsx';
 import { formatDate, formatDuration, formatMoney } from '../lib/format.js';
 import { categoryLabel, payrollStatusLabel, payrollStatusTone } from '../hooks/usePayrollOptions.js';
+
+// Mirrors the server's default cooldown windows (ACTION_COOLDOWN_SECONDS /
+// EMAIL_COOLDOWN_SECONDS / PDF_COOLDOWN_SECONDS). Only used to pre-emptively
+// disable a button; the server enforces the real value.
+const ACTION_COOLDOWN_SECONDS = 10;
+const EMAIL_COOLDOWN_SECONDS = 5 * 60;
+const PDF_COOLDOWN_SECONDS = 5;
 
 /**
  * One payslip: the figures it was computed from, and every rule that ran.
@@ -25,18 +33,49 @@ export function PayslipForm() {
 
   const mayProcess = can(PERMISSIONS.PAYROLL_PROCESS);
   const [busy, setBusy] = useState(null);
+  const cooldown = useCooldown();
 
   const record = useResource((signal) => api.get(`/payroll/payslips/${id}`, { signal }), [id]);
   const payslip = record.data;
 
-  async function act(action, request, message) {
+  async function act(action, request, message, { cooldownKey, cooldownSeconds, optimistic } = {}) {
     setBusy(action);
+    // Optimistic actions (sending mail) lock the button the instant the click
+    // happens, rather than after the round trip.
+    if (optimistic && cooldownKey) cooldown.start(cooldownKey, cooldownSeconds);
     try {
       await request();
+      if (cooldownKey && !optimistic) cooldown.start(cooldownKey, cooldownSeconds);
       toast.success(message);
       record.refetch();
     } catch (error) {
+      if (cooldownKey && error?.status === 429 && error?.retryAfter) {
+        cooldown.start(cooldownKey, error.retryAfter);
+      } else if (cooldownKey && optimistic) {
+        cooldown.clear(cooldownKey);
+      }
       toast.error(error?.message ?? 'That did not work.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function downloadPdf() {
+    if (busy || cooldown.isActive('pdf')) return;
+    const popup = window.open('', '_blank');
+    setBusy('pdf');
+    cooldown.start('pdf', PDF_COOLDOWN_SECONDS);
+    try {
+      const blob = await api.download(`/payroll/payslips/${id}/pdf`);
+      const url = URL.createObjectURL(blob);
+      if (popup) popup.location.href = url;
+      else window.open(url, '_blank', 'noopener,noreferrer');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      popup?.close();
+      if (error?.status === 429 && error?.retryAfter) cooldown.start('pdf', error.retryAfter);
+      else cooldown.clear('pdf');
+      toast.error(error?.message ?? 'Could not generate the PDF.');
     } finally {
       setBusy(null);
     }
@@ -118,54 +157,62 @@ export function PayslipForm() {
 
           <div className="row">
             {mayProcess && payslip.status !== 'PAID' && (
-              <Button
+              <ActionButton
                 variant="primary"
-                pending={busy === 'compute'}
+                busy={busy === 'compute'}
+                cooldownKey="compute"
+                cooldown={cooldown}
                 onClick={() =>
                   act(
                     'compute',
                     () => api.post(`/payroll/payslips/${id}/compute`),
-                    'Payslip computed.'
+                    'Payslip computed.',
+                    { cooldownKey: 'compute', cooldownSeconds: ACTION_COOLDOWN_SECONDS, optimistic: true }
                   )
                 }
               >
                 Compute
-              </Button>
+              </ActionButton>
             )}
 
             {mayProcess && payslip.status === 'DONE' && (
-              <Button
-                pending={busy === 'paid'}
+              <ActionButton
+                busy={busy === 'paid'}
+                cooldownKey="paid"
+                cooldown={cooldown}
                 onClick={() =>
                   act(
                     'paid',
                     () => api.post(`/payroll/payslips/${id}/status`, { status: 'PAID' }),
-                    'Payslip marked paid.'
+                    'Payslip marked paid.',
+                    { cooldownKey: 'paid', cooldownSeconds: ACTION_COOLDOWN_SECONDS, optimistic: true }
                   )
                 }
               >
                 Mark Paid
-              </Button>
+              </ActionButton>
             )}
 
-            <a
-              className="button"
-              href={`/api/payroll/payslips/${id}/pdf`}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <ActionButton busy={busy === 'pdf'} cooldownKey="pdf" cooldown={cooldown} onClick={downloadPdf}>
               Print Payslip
-            </a>
+            </ActionButton>
 
             {mayProcess && (
-              <Button
-                pending={busy === 'send'}
+              <ActionButton
+                busy={busy === 'send'}
+                cooldownKey="send"
+                cooldown={cooldown}
                 onClick={() =>
-                  act('send', () => api.post(`/payroll/payslips/${id}/send`), 'Payslip emailed.')
+                  act(
+                    'send',
+                    () => api.post(`/payroll/payslips/${id}/send`),
+                    'Payslip emailed.',
+                    { cooldownKey: 'send', cooldownSeconds: EMAIL_COOLDOWN_SECONDS, optimistic: true }
+                  )
                 }
               >
                 Send by email
-              </Button>
+              </ActionButton>
             )}
           </div>
 

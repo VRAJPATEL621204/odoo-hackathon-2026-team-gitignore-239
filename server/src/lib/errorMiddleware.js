@@ -37,6 +37,10 @@ export function errorMiddleware(error, req, res, next) {
   if (error instanceof AppError) {
     const body = { code: error.code, message: error.message };
     if (error.fields) body.fields = error.fields;
+    if (error.retryAfter !== undefined) {
+      res.setHeader('Retry-After', error.retryAfter);
+      body.retryAfter = error.retryAfter;
+    }
     return res.status(error.status).json({ error: body });
   }
 

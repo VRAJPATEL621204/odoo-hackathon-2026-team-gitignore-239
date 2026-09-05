@@ -16,6 +16,7 @@ import { attendanceRouter } from './routes/attendance.routes.js';
 import { timeOffRouter } from './routes/timeoff.routes.js';
 import { payrollRouter } from './routes/payroll.routes.js';
 import { dashboardRouter } from './routes/dashboard.routes.js';
+import { deviceId } from './lib/deviceId.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,12 +30,14 @@ const clientDist = path.resolve(__dirname, '../../client/dist');
  */
 export function createApp() {
   const app = express();
+  app.set('trust proxy', env.trustProxyHops);
 
   // The Vite dev server proxies /api, so requests are same-origin in practice.
   // CORS stays configured for the case where the client is opened directly.
   app.use(cors({ origin: env.clientOrigin, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser);
+  app.use(deviceId);
 
   app.use('/api', healthRouter);
   app.use('/api', authRouter);

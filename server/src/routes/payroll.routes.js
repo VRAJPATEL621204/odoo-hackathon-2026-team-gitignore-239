@@ -11,6 +11,10 @@ import { PERMISSIONS } from '../domain/roles.js';
 import { validateFormula } from '../domain/formula.js';
 import { payslipFilename, renderPayslipPdf } from '../lib/payslipPdf.js';
 import { sendPayslipEmail } from '../lib/mailer.js';
+import { env } from '../lib/env.js';
+import { createConcurrencyLock } from '../lib/concurrencyLock.js';
+import { createRateLimiter } from '../lib/rateLimit.js';
+import { tooManyRequests } from '../lib/errors.js';
 import {
   createRule,
   createStructure,
@@ -39,11 +43,55 @@ import {
 
 export const payrollRouter = Router();
 
-const activeEmailJobs = new Set();
+const bulkEmailLock = createConcurrencyLock();
+const singleEmailLock = createConcurrencyLock();
+const pdfLock = createConcurrencyLock();
+const computeLock = createConcurrencyLock();
+
+// Concurrency locks above stop two requests overlapping; they say nothing
+// about a second click arriving right after the first one finished. These
+// cooldowns close that gap: `limit: 1` per window means the first call in a
+// window succeeds and starts the window, and every call inside it — even
+// once the first has completed — is rejected until the window elapses.
+const computeCooldown = createRateLimiter({ limit: 1, windowMs: env.actionCooldownSeconds * 1000 });
+const statusCooldown = createRateLimiter({ limit: 1, windowMs: env.actionCooldownSeconds * 1000 });
+const emailCooldown = createRateLimiter({ limit: 1, windowMs: env.emailCooldownSeconds * 1000 });
+const pdfCooldown = createRateLimiter({ limit: 1, windowMs: env.pdfCooldownSeconds * 1000 });
 
 const canRead = [requireAuth, requirePermission(PERMISSIONS.PAYROLL_READ)];
 const canProcess = [requireAuth, requirePermission(PERMISSIONS.PAYROLL_PROCESS)];
 const canConfigure = [requireAuth, requirePermission(PERMISSIONS.PAYROLL_CONFIGURE)];
+function userResourceKey(req, id) {
+  return `${req.user.id}:${id}`;
+}
+
+/**
+ * Enforces a cooldown key, throwing 429 when it is still active.
+ *
+ * Cooldowns key by resource, not by user, so two different admins clicking
+ * the same button back to back cannot double the work either.
+ */
+function enforceCooldown(limiter, key, res, message) {
+  const result = limiter.check(key);
+  if (!result.allowed) {
+    res.setHeader('Retry-After', result.retryAfterSeconds);
+    throw tooManyRequests(message, 'ACTION_COOLDOWN', result.retryAfterSeconds);
+  }
+}
+
+/** Acquires a single-process lock for one user's payslip PDF generation. */
+async function renderLockedPdf(key, payslip) {
+  const release = pdfLock.acquire(key);
+  if (!release) {
+    throw conflict('PDF_GENERATION_IN_PROGRESS', 'PDF generation is already in progress.');
+  }
+
+  try {
+    return await renderPayslipPdf(payslip);
+  } finally {
+    release();
+  }
+}
 
 const CATEGORIES = ['BASIC', 'ALLOWANCE', 'GROSS', 'DEDUCTION', 'NET'];
 const COMPUTATIONS = ['FIXED', 'PERCENTAGE', 'FORMULA'];
@@ -266,7 +314,29 @@ payrollRouter.post(
   '/payroll/payruns/:id/compute',
   canProcess,
   asyncHandler(async (req, res) => {
-    res.json(await computePayrun(readId(req.params.id)));
+    const id = readId(req.params.id);
+    const cooldownKey = `payrun:${id}`;
+    enforceCooldown(
+      computeCooldown,
+      cooldownKey,
+      res,
+      'This payrun was just computed. Please wait before recomputing.'
+    );
+
+    const release = computeLock.acquire(cooldownKey);
+    if (!release) {
+      computeCooldown.reset(cooldownKey);
+      throw conflict('COMPUTE_IN_PROGRESS', 'This payrun is already being computed.');
+    }
+
+    try {
+      res.json(await computePayrun(id));
+    } catch (error) {
+      computeCooldown.reset(cooldownKey);
+      throw error;
+    } finally {
+      release();
+    }
   })
 );
 
@@ -277,7 +347,21 @@ payrollRouter.post(
     const check = validator(req.body);
     check.enum('status', ['DRAFT', 'COMPUTED', 'VALIDATED', 'PAID'], { required: true });
     const { status } = check.result();
-    res.json(await setPayrunStatus(readId(req.params.id), status));
+    const id = readId(req.params.id);
+    const cooldownKey = `payrun:${id}:${status}`;
+    enforceCooldown(
+      statusCooldown,
+      cooldownKey,
+      res,
+      'This change was just made. Please wait before repeating it.'
+    );
+
+    try {
+      res.json(await setPayrunStatus(id, status));
+    } catch (error) {
+      statusCooldown.reset(cooldownKey);
+      throw error;
+    }
   })
 );
 
@@ -301,20 +385,39 @@ payrollRouter.post(
       );
     }
 
-    if (activeEmailJobs.has(payrunId)) {
-      return res.status(409).json({
-        error: { code: 'EMAILS_ALREADY_SENDING', message: 'Payslip emails are already being sent.' },
-      });
+    const recipients = payrun.payslips;
+    if (recipients.length > env.maxBulkEmailRecipients) {
+      throw conflict(
+        'BULK_EMAIL_TOO_LARGE',
+        `A bulk email operation is limited to ${env.maxBulkEmailRecipients} recipients.`
+      );
     }
 
-    activeEmailJobs.add(payrunId);
-    res.status(202).json({ queued: payrun.payslips.length });
+    const cooldownKey = `payrun:${payrunId}`;
+    enforceCooldown(
+      emailCooldown,
+      cooldownKey,
+      res,
+      'Payslips for this payrun were just sent. Please wait before sending again.'
+    );
+
+    const accountKey = String(req.user.id);
+    const releaseBulkEmail = bulkEmailLock.acquire(accountKey);
+    if (!releaseBulkEmail) {
+      emailCooldown.reset(cooldownKey);
+      throw conflict(
+        'BULK_EMAIL_IN_PROGRESS',
+        'A bulk email operation is already in progress.'
+      );
+    }
+
+    res.status(202).json({ queued: recipients.length });
 
     void (async () => {
       try {
         const batchSize = 5;
-        for (let index = 0; index < payrun.payslips.length; index += batchSize) {
-          const batch = payrun.payslips.slice(index, index + batchSize);
+        for (let index = 0; index < recipients.length; index += batchSize) {
+          const batch = recipients.slice(index, index + batchSize);
           await Promise.all(
             batch.map(async (summary) => {
               const payslip = await getPayslip(summary.id);
@@ -331,9 +434,17 @@ payrollRouter.post(
       } catch (error) {
         console.error(`Payslip email job failed for payrun ${payrunId}:`, error);
       } finally {
-        activeEmailJobs.delete(payrunId);
+        releaseBulkEmail();
       }
     })();
+  })
+);
+
+payrollRouter.get(
+  '/payroll/payruns/:id/send-status',
+  canProcess,
+  asyncHandler(async (req, res) => {
+    res.json({ active: bulkEmailLock.isActive(String(req.user.id)) });
   })
 );
 
@@ -369,7 +480,29 @@ payrollRouter.post(
   '/payroll/payslips/:id/compute',
   canProcess,
   asyncHandler(async (req, res) => {
-    res.json(await computeOnePayslip(readId(req.params.id)));
+    const id = readId(req.params.id);
+    const cooldownKey = `payslip:${id}`;
+    enforceCooldown(
+      computeCooldown,
+      cooldownKey,
+      res,
+      'This payslip was just computed. Please wait before recomputing.'
+    );
+
+    const release = computeLock.acquire(cooldownKey);
+    if (!release) {
+      computeCooldown.reset(cooldownKey);
+      throw conflict('COMPUTE_IN_PROGRESS', 'This payslip is already being computed.');
+    }
+
+    try {
+      res.json(await computeOnePayslip(id));
+    } catch (error) {
+      computeCooldown.reset(cooldownKey);
+      throw error;
+    } finally {
+      release();
+    }
   })
 );
 
@@ -380,7 +513,21 @@ payrollRouter.post(
     const check = validator(req.body);
     check.enum('status', ['DRAFT', 'DONE', 'PAID'], { required: true });
     const { status } = check.result();
-    res.json(await setPayslipStatus(readId(req.params.id), status));
+    const id = readId(req.params.id);
+    const cooldownKey = `payslip:${id}:${status}`;
+    enforceCooldown(
+      statusCooldown,
+      cooldownKey,
+      res,
+      'This change was just made. Please wait before repeating it.'
+    );
+
+    try {
+      res.json(await setPayslipStatus(id, status));
+    } catch (error) {
+      statusCooldown.reset(cooldownKey);
+      throw error;
+    }
   })
 );
 
@@ -389,8 +536,19 @@ payrollRouter.get(
   '/payroll/payslips/:id/pdf',
   canRead,
   asyncHandler(async (req, res) => {
-    const payslip = await getPayslip(readId(req.params.id));
-    const pdf = await renderPayslipPdf(payslip);
+    const payslipId = readId(req.params.id);
+    const key = userResourceKey(req, payslipId);
+    enforceCooldown(pdfCooldown, key, res, 'This PDF was just generated. Please wait a moment.');
+
+    let payslip;
+    let pdf;
+    try {
+      payslip = await getPayslip(payslipId);
+      pdf = await renderLockedPdf(key, payslip);
+    } catch (error) {
+      pdfCooldown.reset(key);
+      throw error;
+    }
 
     res.setHeader('Content-Type', 'application/pdf');
     // inline, so the browser previews it rather than dropping a file into the
@@ -406,15 +564,38 @@ payrollRouter.post(
   '/payroll/payslips/:id/send',
   canProcess,
   asyncHandler(async (req, res) => {
-    const payslip = await getPayslip(readId(req.params.id));
-    const pdf = await renderPayslipPdf(payslip);
-    const result = await sendPayslipEmail({ payslip, pdf, filename: payslipFilename(payslip) });
+    const payslipId = readId(req.params.id);
+    const lockKey = userResourceKey(req, payslipId);
+    const cooldownKey = `payslip:${payslipId}`;
+    enforceCooldown(
+      emailCooldown,
+      cooldownKey,
+      res,
+      'This payslip was just emailed. Please wait before sending again.'
+    );
 
-    if (!result.ok) {
-      throw conflict('SEND_FAILED', `Could not send the payslip: ${result.error}`);
+    const releaseSingleEmail = singleEmailLock.acquire(lockKey);
+    if (!releaseSingleEmail) {
+      emailCooldown.reset(cooldownKey);
+      throw conflict('EMAIL_ALREADY_SENDING', 'This payslip email is already being sent.');
     }
 
-    await markPayslipSent(payslip.id);
-    res.json(result);
+    try {
+      const payslip = await getPayslip(payslipId);
+      const pdf = await renderLockedPdf(lockKey, payslip);
+      const result = await sendPayslipEmail({ payslip, pdf, filename: payslipFilename(payslip) });
+
+      if (!result.ok) {
+        throw conflict('SEND_FAILED', `Could not send the payslip: ${result.error}`);
+      }
+
+      await markPayslipSent(payslip.id);
+      res.json(result);
+    } catch (error) {
+      emailCooldown.reset(cooldownKey);
+      throw error;
+    } finally {
+      releaseSingleEmail();
+    }
   })
 );

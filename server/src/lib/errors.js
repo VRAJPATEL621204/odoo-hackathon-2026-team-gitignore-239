@@ -6,12 +6,13 @@
  * for form validation so the UI can place them under the right input.
  */
 export class AppError extends Error {
-  constructor(status, code, message, fields) {
+  constructor(status, code, message, fields, retryAfter) {
     super(message);
     this.name = 'AppError';
     this.status = status;
     this.code = code;
     if (fields) this.fields = fields;
+    if (retryAfter !== undefined) this.retryAfter = retryAfter;
   }
 }
 
@@ -41,6 +42,6 @@ export function validationError(fields, message = 'Please correct the highlighte
   return new AppError(422, 'VALIDATION_ERROR', message, fields);
 }
 
-export function tooManyRequests(message, code = 'TOO_MANY_REQUESTS') {
-  return new AppError(429, code, message);
+export function tooManyRequests(message, code = 'TOO_MANY_REQUESTS', retryAfter) {
+  return new AppError(429, code, message, undefined, retryAfter);
 }

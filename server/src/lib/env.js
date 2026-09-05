@@ -37,6 +37,17 @@ function integer(name, fallback) {
   return parsed;
 }
 
+function nonNegativeInteger(name, fallback) {
+  const raw = process.env[name];
+  if (!raw || raw.trim() === '') return fallback;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    errors.push(`${name} must be a non-negative integer, received "${raw}"`);
+    return fallback;
+  }
+  return parsed;
+}
+
 const databaseUrl = required('DATABASE_URL');
 const jwtSecret = required('JWT_SECRET');
 
@@ -53,6 +64,27 @@ export const env = {
   jwtSecret,
   jwtExpiresInSeconds: integer('JWT_EXPIRES_IN_SECONDS', 8 * 60 * 60),
   clientOrigin: optional('CLIENT_ORIGIN', 'http://localhost:5173'),
+  trustProxyHops: nonNegativeInteger('TRUST_PROXY_HOPS', 0),
+  // Login is the only broadly rate-limited route, on three independent keys:
+  // source IP (blunt cap on distributed brute force), account email (locks
+  // out attempts at one account regardless of which IP they come from), and
+  // an anonymous per-browser cookie (catches many accounts tried from one
+  // browser even behind a shared/NAT IP). Each is checked separately so a
+  // shared office IP does not throttle every employee behind it.
+  rateLimitLoginMax: integer('RATE_LIMIT_LOGIN_MAX', 5),
+  rateLimitLoginWindow: integer('RATE_LIMIT_LOGIN_WINDOW', 60),
+  rateLimitLoginAccountMax: integer('RATE_LIMIT_LOGIN_ACCOUNT_MAX', 10),
+  rateLimitLoginAccountWindow: integer('RATE_LIMIT_LOGIN_ACCOUNT_WINDOW', 900),
+  rateLimitLoginDeviceMax: integer('RATE_LIMIT_LOGIN_DEVICE_MAX', 8),
+  rateLimitLoginDeviceWindow: integer('RATE_LIMIT_LOGIN_DEVICE_WINDOW', 60),
+  maxBulkEmailRecipients: integer('MAX_BULK_EMAIL_RECIPIENTS', 10),
+  // Per-resource cooldowns stop a button being mashed into repeated work —
+  // independent of the in-flight concurrency locks, which only stop two
+  // requests overlapping, not a second one arriving right after the first
+  // finished.
+  actionCooldownSeconds: integer('ACTION_COOLDOWN_SECONDS', 10),
+  emailCooldownSeconds: integer('EMAIL_COOLDOWN_SECONDS', 5 * 60),
+  pdfCooldownSeconds: integer('PDF_COOLDOWN_SECONDS', 5),
   companyName: optional('COMPANY_NAME', 'OXP Pvt Ltd'),
   // The timezone a business day is measured in. Attendance check-ins are
   // instants; which calendar day they belong to depends on where the company

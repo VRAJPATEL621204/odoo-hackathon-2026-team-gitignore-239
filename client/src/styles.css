@@ -251,6 +251,17 @@ a:hover {
 .muted {
   color: var(--color-text-muted);
 }
+
+.action-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+.action-button__note {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
 .mono {
   font-family: var(--font-mono);
   font-size: 12px;

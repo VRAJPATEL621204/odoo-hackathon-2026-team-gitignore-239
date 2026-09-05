@@ -7,12 +7,13 @@
  */
 
 export class ApiError extends Error {
-  constructor(status, code, message, fields) {
+  constructor(status, code, message, fields, retryAfter) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.fields = fields ?? null;
+    this.retryAfter = retryAfter ?? null;
   }
 }
 
@@ -64,6 +65,7 @@ async function request(method, path, { body, query, signal } = {}) {
 
   if (!response.ok) {
     const details = payload?.error;
+    const retryAfter = Number(details?.retryAfter ?? response.headers.get('retry-after')) || null;
 
     // The API always answers with JSON. A non-JSON 5xx means the request never
     // reached it — in development that is the Vite proxy reporting that the
@@ -75,12 +77,39 @@ async function request(method, path, { body, query, signal } = {}) {
     throw new ApiError(
       response.status,
       details?.code ?? 'UNKNOWN',
-      details?.message ?? `Request failed with status ${response.status}.`,
-      details?.fields
+      response.status === 429 && retryAfter
+        ? `${details?.message ?? 'Too many requests.'} Please wait ${retryAfter} seconds.`
+        : details?.message ?? `Request failed with status ${response.status}.`,
+      details?.fields,
+      retryAfter
     );
   }
 
   return payload;
+}
+
+async function download(path, { signal } = {}) {
+  let response;
+  try {
+    response = await fetch(buildUrl(path), { credentials: 'include', signal });
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error;
+    throw new NetworkError();
+  }
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type') ?? '';
+    const payload = contentType.includes('application/json') ? await response.json() : null;
+    const details = payload?.error;
+    const retryAfter = Number(details?.retryAfter ?? response.headers.get('retry-after')) || null;
+    const message =
+      response.status === 429 && retryAfter
+        ? `${details?.message ?? 'Too many requests.'} Please wait ${retryAfter} seconds.`
+        : details?.message ?? `Request failed with status ${response.status}.`;
+    throw new ApiError(response.status, details?.code ?? 'UNKNOWN', message, details?.fields, retryAfter);
+  }
+
+  return response.blob();
 }
 
 export const api = {
@@ -89,4 +118,5 @@ export const api = {
   patch: (path, body, options) => request('PATCH', path, { ...options, body }),
   put: (path, body, options) => request('PUT', path, { ...options, body }),
   delete: (path, options) => request('DELETE', path, options),
+  download,
 };

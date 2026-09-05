@@ -5,7 +5,7 @@ import { validator } from '../lib/validate.js';
 import { env } from '../lib/env.js';
 import { clearSessionCookie, setSessionCookie } from '../lib/cookies.js';
 import { signSession } from '../lib/token.js';
-import { createRateLimiter } from '../lib/rateLimit.js';
+import { createRateLimiter, rateLimit } from '../lib/rateLimit.js';
 import { tooManyRequests } from '../lib/errors.js';
 import { authenticate, sessionPayload } from '../services/auth.service.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -13,28 +13,67 @@ import { ROLE_DEFINITIONS } from '../domain/roles.js';
 
 export const authRouter = Router();
 
-// Ten attempts per address per fifteen minutes. Generous enough that a person
-// mistyping their password is never locked out, tight enough that guessing a
-// password over HTTP is not practical.
-const loginLimiter = createRateLimiter({ limit: 10, windowMs: 15 * 60 * 1000 });
+// Three independent keys, each catching a different attack shape:
+//  - IP: a blunt cap on distributed brute force from one network. Never
+//    reset, since the point is to slow total attempt volume regardless of
+//    whether any one attempt happened to succeed.
+//  - account (email alone, not mixed with IP): locks out attacks on one
+//    account even when the attacker rotates source IPs. Reset on success so
+//    it never penalizes a legitimate user for earlier typos.
+//  - device (anonymous browser cookie): catches many accounts tried from one
+//    browser behind a shared or NAT IP, where the IP layer alone would treat
+//    every desk in the office as one attacker. Reset on success.
+const loginIpLimiter = createRateLimiter({
+  limit: env.rateLimitLoginMax,
+  windowMs: env.rateLimitLoginWindow * 1000,
+});
+const loginAccountLimiter = createRateLimiter({
+  limit: env.rateLimitLoginAccountMax,
+  windowMs: env.rateLimitLoginAccountWindow * 1000,
+});
+const loginDeviceLimiter = createRateLimiter({
+  limit: env.rateLimitLoginDeviceMax,
+  windowMs: env.rateLimitLoginDeviceWindow * 1000,
+});
 
 authRouter.post(
   '/auth/login',
+  rateLimit({
+    limiter: loginIpLimiter,
+    action: 'LOGIN_IP',
+    message: 'Too many login attempts from this network. Try again later.',
+  }),
   asyncHandler(async (req, res) => {
     const check = validator(req.body);
     check.email('email', { required: true });
     check.string('password', { required: true, min: 1, max: 200, trim: false });
     const { email, password } = check.result();
 
-    const limit = loginLimiter.check(email);
-    if (!limit.allowed) {
+    const deviceKey = req.deviceId ?? 'unknown';
+
+    const accountLimit = loginAccountLimiter.check(email);
+    if (!accountLimit.allowed) {
+      res.setHeader('Retry-After', accountLimit.retryAfterSeconds);
       throw tooManyRequests(
-        `Too many sign-in attempts. Try again in ${limit.retryAfterSeconds} seconds.`
+        `Too many sign-in attempts for this account. Try again in ${accountLimit.retryAfterSeconds} seconds.`,
+        'ACCOUNT_RATE_LIMIT',
+        accountLimit.retryAfterSeconds
+      );
+    }
+
+    const deviceLimit = loginDeviceLimiter.check(deviceKey);
+    if (!deviceLimit.allowed) {
+      res.setHeader('Retry-After', deviceLimit.retryAfterSeconds);
+      throw tooManyRequests(
+        `Too many sign-in attempts from this browser. Try again in ${deviceLimit.retryAfterSeconds} seconds.`,
+        'DEVICE_RATE_LIMIT',
+        deviceLimit.retryAfterSeconds
       );
     }
 
     const user = await authenticate(email, password);
-    loginLimiter.reset(email);
+    loginAccountLimiter.reset(email);
+    loginDeviceLimiter.reset(deviceKey);
 
     setSessionCookie(res, signSession(user.id), env.jwtExpiresInSeconds);
     res.json({ user: sessionPayload(user) });

@@ -41,7 +41,9 @@ export function Login() {
       // A 422 carries per-field messages; everything else is one message about
       // the attempt as a whole, such as wrong credentials or a locked account.
       if (error?.fields) setFieldErrors(error.fields);
-      else setFormError(error?.message ?? 'Could not sign in.');
+      else {
+        setFormError(error?.message ?? 'Could not sign in.');
+      }
     } finally {
       setPending(false);
     }
