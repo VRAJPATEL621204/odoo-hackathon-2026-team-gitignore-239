@@ -4,7 +4,16 @@ import { api } from '../api/client.js';
 import { useAuth } from '../auth/AuthProvider.jsx';
 import { useToast } from './ToastProvider.jsx';
 import { Button } from './Button.jsx';
-import { formatDuration, formatTime } from '../lib/format.js';
+import { formatDuration, formatTime, formatWorkedDuration } from '../lib/format.js';
+
+/**
+ * An open session must have run at least this long before it can be checked
+ * out of - mirrors `MIN_CHECKOUT_MINUTES` in the server's
+ * `domain/attendance.js`, which is what actually enforces it. Kept as one
+ * named constant here rather than a literal `60` so the two are easy to spot
+ * and update together.
+ */
+const MIN_CHECKOUT_MINUTES = 60;
 
 /**
  * The check in / check out widget in the top bar.
@@ -16,6 +25,8 @@ import { formatDuration, formatTime } from '../lib/format.js';
  *
  * The elapsed time ticks in the browser from the check-in instant rather than
  * being polled, so the number moves every second without a request per second.
+ * The same tick drives the minimum-session-length gate on Check Out, so the
+ * button re-enables on its own once an hour has passed, with no refresh.
  */
 export function AttendanceWidget({ open, onToggle }) {
   const { user } = useAuth();
@@ -47,9 +58,13 @@ export function AttendanceWidget({ open, onToggle }) {
   const checkedIn = Boolean(session);
 
   // The clock only needs to run while there is something counting up and
-  // somebody looking at it.
+  // somebody looking at it. Refreshed immediately on open rather than waiting
+  // for the first tick, so a panel opened long after the widget mounted (and
+  // therefore long after `now` was last set) does not briefly under-count the
+  // elapsed time - which the checkout gate below, not just the display, relies on.
   useEffect(() => {
     if (!checkedIn || !open) return undefined;
+    setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [checkedIn, open]);
@@ -76,6 +91,14 @@ export function AttendanceWidget({ open, onToggle }) {
 
   const elapsedHours = session ? Math.max(0, (now - new Date(session.checkIn).getTime()) / 3600000) : 0;
   const todayHours = (summary?.closedHours ?? 0) + elapsedHours;
+
+  // The minimum session length before Check Out is allowed - a floor on this
+  // one action, not the employee's expected hours (the working schedule still
+  // owns that). Ticks live off the same `now` as the elapsed-time display.
+  const checkInTime = session ? new Date(session.checkIn).getTime() : null;
+  const minutesSinceCheckIn = checkInTime ? Math.max(0, (now - checkInTime) / 60000) : 0;
+  const canCheckOut = !checkedIn || minutesSinceCheckIn >= MIN_CHECKOUT_MINUTES;
+  const checkoutUnlocksAt = checkInTime ? new Date(checkInTime + MIN_CHECKOUT_MINUTES * 60000) : null;
 
   async function act() {
     setPending(true);
@@ -123,7 +146,7 @@ export function AttendanceWidget({ open, onToggle }) {
               <span>
                 {formatTime(session.checkIn)} <span className="muted">— Now</span>
               </span>
-              <strong>{formatDuration(elapsedHours)}</strong>
+              <strong>{formatWorkedDuration(elapsedHours)}</strong>
             </div>
           ) : (
             <div className="attendance-panel__row">
@@ -133,10 +156,21 @@ export function AttendanceWidget({ open, onToggle }) {
 
           <div className="attendance-panel__row">
             <span>Today</span>
-            <strong>{formatDuration(todayHours)}</strong>
+            <strong>{formatWorkedDuration(todayHours)}</strong>
           </div>
 
-          <Button variant="primary" pending={pending} onClick={act}>
+          {checkedIn && !canCheckOut && (
+            <span className="muted" style={{ fontSize: 12 }}>
+              You can check out at {formatTime(checkoutUnlocksAt)}.
+            </span>
+          )}
+
+          <Button
+            variant="primary"
+            pending={pending}
+            disabled={checkedIn && !canCheckOut}
+            onClick={act}
+          >
             {checkedIn ? 'Check Out' : 'Check In'}
           </Button>
         </div>

@@ -42,6 +42,19 @@ export function validateBankAccount(value, { required = false } = {}) {
   return null;
 }
 
+/** Password must be at least min characters (default 8) and at most max characters (default 200). */
+export function validatePassword(value, { required = false, min = 8, max = 200 } = {}) {
+  const str = value ?? '';
+  if (!str) return required ? 'This field is required.' : null;
+  if (str.length < min) {
+    return `Must be at least ${min} characters.`;
+  }
+  if (str.length > max) {
+    return `Must be at most ${max} characters.`;
+  }
+  return null;
+}
+
 /**
  * Runs `checks` (each `[field, validatorFn, options]`) against `form` and
  * returns a `{ field: message }` map for whatever failed.

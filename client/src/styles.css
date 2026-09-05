@@ -1,28 +1,46 @@
 /*
  * PeoplePay360 stylesheet.
  *
- * One hand-written file, system fonts, no CSS framework. The UI exists to make
- * the business logic legible, so the palette is deliberately flat and the
- * emphasis is on tables, forms, statuses and results.
+ * Hand-written, Tailwind-powered (v4, via @theme + @apply) rather than a
+ * component library. The UI exists to make the business logic legible, so
+ * layout stays plain; Material You supplies the tonal palette, pill controls
+ * and filled inputs applied through the shared classes below (.button,
+ * .input/.select/.textarea, .card, checkbox-round) - most other rules never
+ * hardcode a color and so pick up the new palette for free.
  */
 
-:root {
-  --color-bg: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-border: #d8dce3;
-  --color-border-strong: #b6bcc7;
-  --color-text: #1c2331;
-  --color-text-muted: #5c6675;
-  --color-primary: #2f5bea;
-  --color-primary-hover: #2447c4;
+@import 'tailwindcss';
+
+/* Material You tokens (purple/violet seed #6750A4). Named to match what the
+   rest of this file already called them (--color-bg, --color-primary, ...)
+   so every rule below inherits the new palette without being rewritten -
+   only the handful of shared component classes get bespoke MD3 treatment. */
+@theme {
+  --color-bg: #fffbfe; /* MD3 Background */
+  --color-surface: #f3edf7; /* MD3 Surface Container - cards, topbar, menus */
+  --color-surface-muted: #e7e0ec; /* MD3 Surface Container Low - filled inputs */
+  --color-border: #d9d2e0; /* soft tonal divider */
+  --color-border-strong: #79747e; /* MD3 Outline */
+  --color-text: #1c1b1f; /* MD3 On Surface */
+  --color-text-muted: #49454f; /* MD3 On Surface Variant */
+  --color-primary: #6750a4; /* MD3 seed */
+  --color-on-primary: #ffffff;
+  --color-secondary-container: #e8def8;
+  --color-on-secondary-container: #1d192b;
+  --color-tertiary: #7d5260;
   --color-danger: #c0392f;
   --color-danger-bg: #fdeceb;
   --color-success: #1e7d43;
   --color-success-bg: #e8f5ed;
   --color-warning: #9a6400;
   --color-warning-bg: #fdf3e0;
-  --color-info-bg: #eaf0fe;
+  --color-info-bg: #e8def8; /* secondary container tint, not a blue tie-in anymore */
 
+  --font-sans: 'Roboto', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+:root {
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -30,9 +48,7 @@
   --space-5: 24px;
   --space-6: 32px;
 
-  --radius: 6px;
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --radius: 12px;
 }
 
 *,
@@ -182,14 +198,13 @@ a:hover {
   color: var(--color-primary);
 }
 .nav-menu__items {
+  @apply rounded-2xl shadow-md;
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
   min-width: 190px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px rgb(20 25 35 / 12%);
   padding: var(--space-1);
   display: flex;
   flex-direction: column;
@@ -202,7 +217,7 @@ a:hover {
 .page {
   flex: 1;
   width: 100%;
-  max-width: 1240px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: var(--space-5);
 }
@@ -215,6 +230,9 @@ a:hover {
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
 }
+.stack > .page-header {
+  margin-bottom: 0;
+}
 .page-header__subtitle {
   color: var(--color-text-muted);
   margin-top: var(--space-1);
@@ -224,11 +242,14 @@ a:hover {
   gap: var(--space-2);
 }
 
+/* Tonal surface, not a bordered box - MD3 leans on the color step between
+   .card and the page background (--color-bg) for separation instead. */
 .card {
+  @apply rounded-3xl shadow-sm;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--space-4);
+  border: none;
+  padding: var(--space-5);
+  min-width: 0;
 }
 
 .stack {
@@ -241,6 +262,61 @@ a:hover {
   gap: var(--space-3);
   align-items: center;
   flex-wrap: wrap;
+}
+
+/* A checkbox row never wraps between its box and its label - only the label's
+   own text wraps, so a long description never drops the box to its own line. */
+.checkbox-row {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.checkbox-row label {
+  cursor: pointer;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  min-width: 0;
+  line-height: 1.4;
+}
+
+/* Round checkbox: the native box is hidden and redrawn as a circle, checked
+   state filled with a small tick so it still reads as "select many", not a
+   radio button. */
+.checkbox-round {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  border: 1.5px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-surface);
+  cursor: pointer;
+  position: relative;
+}
+.checkbox-round:checked {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+.checkbox-round:checked::after {
+  content: '';
+  position: absolute;
+  top: 46%;
+  left: 50%;
+  width: 4px;
+  height: 8px;
+  border: solid var(--color-surface);
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -55%) rotate(45deg);
+}
+.checkbox-round:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.checkbox-round:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 .grid {
   display: grid;
@@ -272,47 +348,53 @@ a:hover {
 
 /* --------------------------------------------------------------- controls */
 
+/* Pill-shaped with a state layer (a translucent overlay of the button's own
+   color) on hover/press instead of swapping to a different hover color - the
+   MD3 interaction model. Default/unvariant reads as MD3's "Outlined" button:
+   primary-colored text and border, tonal surface fill. */
 .button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  min-height: 34px;
+  @apply inline-flex items-center justify-center gap-2 rounded-full
+    px-5 min-h-9 font-medium cursor-pointer select-none
+    transition-all duration-200 ease-[cubic-bezier(0.2,0,0,1)]
+    active:scale-95
+    disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+    focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2;
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius);
   background: var(--color-surface);
-  color: var(--color-text);
-  font: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  color: var(--color-primary);
+  outline-color: var(--color-primary);
 }
 .button:hover:not(:disabled) {
-  background: var(--color-bg);
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
 }
 .button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+  @apply active:scale-100;
 }
 .button--primary {
-  background: var(--color-primary);
   border-color: var(--color-primary);
-  color: #fff;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
 }
 .button--primary:hover:not(:disabled) {
-  background: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
+  @apply shadow-md;
+  background: color-mix(in srgb, var(--color-primary) 90%, black);
+  border-color: color-mix(in srgb, var(--color-primary) 90%, black);
+}
+.button--primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--color-primary) 80%, black);
 }
 .button--danger {
-  background: var(--color-danger);
   border-color: var(--color-danger);
+  background: var(--color-danger);
   color: #fff;
 }
+.button--danger:hover:not(:disabled) {
+  @apply shadow-md;
+  background: color-mix(in srgb, var(--color-danger) 90%, black);
+  border-color: color-mix(in srgb, var(--color-danger) 90%, black);
+}
 .button--small {
-  min-height: 28px;
-  padding: var(--space-1) var(--space-3);
-  font-size: 13px;
+  @apply min-h-8 px-3.5 text-[13px];
 }
 
 .field {
@@ -333,29 +415,29 @@ a:hover {
   font-size: 12px;
 }
 
+/* MD3 filled text field: rounded top only, a 2px bottom border that carries
+   the focus/invalid state instead of a boxed outline all the way round. */
 .input,
 .select,
 .textarea {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  min-height: 34px;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius);
-  background: var(--color-surface);
+  @apply w-full px-3 py-2 min-h-10 rounded-t-xl rounded-b-none
+    transition-colors duration-200;
+  border: none;
+  border-bottom: 2px solid var(--color-border-strong);
+  background: var(--color-surface-muted);
   color: var(--color-text);
   font: inherit;
 }
 .input:focus,
 .select:focus,
 .textarea:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -1px;
-  border-color: var(--color-primary);
+  outline: none;
+  border-bottom-color: var(--color-primary);
 }
 .input--invalid,
 .select--invalid,
 .textarea--invalid {
-  border-color: var(--color-danger);
+  border-bottom-color: var(--color-danger);
 }
 .textarea {
   min-height: 72px;
@@ -365,10 +447,12 @@ a:hover {
 /* ----------------------------------------------------------------- tables */
 
 .table-wrap {
+  @apply shadow-sm rounded-2xl;
   overflow-x: auto;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius);
   background: var(--color-surface);
+  width: 100%;
+  min-width: 0;
 }
 
 .table {
@@ -721,14 +805,52 @@ a:hover {
    on narrow screens so the form never becomes unusably thin. */
 .split {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
-@media (max-width: 960px) {
+.split > * {
+  min-width: 0;
+}
+@media (max-width: 1024px) {
+  .split {
+    grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+}
+@media (max-width: 768px) {
   .split {
     grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
   }
+}
+
+/* Toolbar inside list cards (e.g. User Management) for search, filter, and action */
+.toolbar {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.toolbar > .button,
+.toolbar > .input,
+.toolbar > .select {
+  height: 36px;
+  box-sizing: border-box;
+}
+.toolbar > .button {
+  flex-shrink: 0;
+}
+.toolbar__search {
+  flex: 1;
+  min-width: 180px;
+}
+.toolbar__select {
+  width: auto;
+  min-width: 130px;
+  max-width: 190px;
+  flex-shrink: 0;
 }
 
 .stack--tight {

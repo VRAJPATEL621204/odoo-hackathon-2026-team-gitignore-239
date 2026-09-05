@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 
 import {
   businessDate,
+  canCheckOut,
   deriveAttendance,
   expectedHoursOn,
   minutesOfDay,
+  minutesSinceCheckIn,
   overtimeHours,
   scheduleWeekday,
   scheduledStartMinutes,
@@ -119,4 +121,26 @@ test('an absence stays an absence and reports no hours', () => {
 test('a record with no check-in is an absence', () => {
   const result = deriveAttendance({ checkIn: null, checkOut: null, scheduleDays: WEEK, timezone: IST });
   assert.equal(result.status, 'ABSENT');
+});
+
+test('minutes since check-in is the plain elapsed time, never negative', () => {
+  assert.equal(minutesSinceCheckIn(at('2026-09-02T13:07:00Z'), at('2026-09-02T13:37:00Z')), 30);
+  assert.equal(minutesSinceCheckIn(at('2026-09-02T13:07:00Z'), at('2026-09-02T14:07:00Z')), 60);
+  // Clock skew or a stale read must never produce a negative wait.
+  assert.equal(minutesSinceCheckIn(at('2026-09-02T13:07:00Z'), at('2026-09-02T13:00:00Z')), 0);
+  assert.equal(minutesSinceCheckIn(null, at('2026-09-02T13:07:00Z')), 0);
+});
+
+test('check-out is refused before an hour has passed and allowed from exactly an hour', () => {
+  const checkIn = at('2026-09-02T13:07:00Z'); // 7:07 PM IST
+  assert.equal(canCheckOut(checkIn, at('2026-09-02T13:37:00Z')), false); // 30 min
+  assert.equal(canCheckOut(checkIn, at('2026-09-02T14:06:00Z')), false); // 59 min
+  assert.equal(canCheckOut(checkIn, at('2026-09-02T14:07:00Z')), true); // exactly 60 min
+  assert.equal(canCheckOut(checkIn, at('2026-09-02T15:07:00Z')), true); // 2 hours
+});
+
+test('the minimum checkout wait is configurable rather than fixed at 60', () => {
+  const checkIn = at('2026-09-02T13:07:00Z');
+  assert.equal(canCheckOut(checkIn, at('2026-09-02T13:22:00Z'), 15), true); // 15 min, 15-min minimum
+  assert.equal(canCheckOut(checkIn, at('2026-09-02T13:21:00Z'), 15), false); // 14 min, 15-min minimum
 });

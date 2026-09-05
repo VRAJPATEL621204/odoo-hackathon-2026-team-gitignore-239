@@ -99,6 +99,21 @@ export function formatDuration(hours) {
   return `${Math.floor(totalMinutes / 60)}h${String(totalMinutes % 60).padStart(2, '0')}`;
 }
 
+/**
+ * Hours as "6 hr 48 min", spelled out for the attendance card's own panel.
+ *
+ * `formatDuration`'s "6h48" stays everywhere else (Dashboard, the attendance
+ * list, payslips) since that shorthand is already established there; this is
+ * a separate function rather than a change to it for exactly that reason.
+ */
+export function formatWorkedDuration(hours) {
+  if (hours === null || hours === undefined) return '0 hr 00 min';
+  const totalMinutes = Math.max(0, Math.round(Number(hours) * 60));
+  const wholeHours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${wholeHours} hr ${String(minutes).padStart(2, '0')} min`;
+}
+
 /** An instant as "9:48 AM" in the reader's own timezone. */
 export function formatTime(value) {
   if (!value) return '—';

@@ -31,7 +31,11 @@ export function DataTable({
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.key} className={column.numeric ? 'table__cell--numeric' : undefined}>
+              <th
+                key={column.key}
+                className={column.numeric ? 'table__cell--numeric' : undefined}
+                style={column.width ? { width: column.width } : undefined}
+              >
                 {column.header}
               </th>
             ))}

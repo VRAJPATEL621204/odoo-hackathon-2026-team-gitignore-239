@@ -93,8 +93,15 @@ export function SelectInput({ label, error, hint, required, options = [], placeh
 export function Checkbox({ label, checked, onChange, ...rest }) {
   const id = useId();
   return (
-    <div className="row">
-      <input id={id} type="checkbox" checked={checked} onChange={onChange} {...rest} />
+    <div className="row checkbox-row">
+      <input
+        id={id}
+        type="checkbox"
+        className="checkbox-round"
+        checked={checked}
+        onChange={onChange}
+        {...rest}
+      />
       <label htmlFor={id}>{label}</label>
     </div>
   );

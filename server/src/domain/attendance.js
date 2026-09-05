@@ -12,6 +12,9 @@
 /** A check-in this many minutes past the scheduled start still counts as on time. */
 export const LATE_GRACE_MINUTES = 10;
 
+/** An open session must have run at least this long before it can be checked out of. */
+export const MIN_CHECKOUT_MINUTES = 60;
+
 /**
  * The calendar day an instant falls on, in the given timezone, as "YYYY-MM-DD".
  *
@@ -63,6 +66,24 @@ export function workedHours(checkIn, checkOut) {
   const milliseconds = checkOut.getTime() - checkIn.getTime();
   if (milliseconds <= 0) return 0;
   return Math.round(milliseconds / 36000) / 100;
+}
+
+/** Minutes elapsed since check-in, at the given instant. Never negative. */
+export function minutesSinceCheckIn(checkIn, now) {
+  if (!checkIn) return 0;
+  const minutes = (now.getTime() - checkIn.getTime()) / 60000;
+  return minutes <= 0 ? 0 : minutes;
+}
+
+/**
+ * Whether a session that started at `checkIn` may be checked out of at `now`.
+ *
+ * This is a minimum session length, not a substitute for the schedule: it
+ * only stops a check-out moments after check-in, and says nothing about how
+ * many hours the day is supposed to have.
+ */
+export function canCheckOut(checkIn, now, minMinutes = MIN_CHECKOUT_MINUTES) {
+  return minutesSinceCheckIn(checkIn, now) >= minMinutes;
 }
 
 /**

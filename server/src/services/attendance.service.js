@@ -4,7 +4,13 @@ import { conflict, notFound, validationError } from '../lib/errors.js';
 import { pageResult } from '../lib/pagination.js';
 import { parseDateOnly } from '../lib/dates.js';
 import { toMoney } from '../lib/money.js';
-import { businessDate, deriveAttendance, workedHours } from '../domain/attendance.js';
+import {
+  businessDate,
+  canCheckOut,
+  deriveAttendance,
+  MIN_CHECKOUT_MINUTES,
+  workedHours,
+} from '../domain/attendance.js';
 
 const SELECT = {
   id: true,
@@ -241,6 +247,12 @@ export async function checkOut(employeeId, now = new Date()) {
   const open = await openSessionFor(employeeId);
   if (!open) {
     throw conflict('NOT_CHECKED_IN', 'You are not checked in, so there is nothing to check out of.');
+  }
+  if (!canCheckOut(open.checkIn, now)) {
+    throw conflict(
+      'CHECKOUT_TOO_EARLY',
+      `You can check out once at least ${MIN_CHECKOUT_MINUTES} minutes have passed since check-in.`
+    );
   }
 
   const scheduleDays = await scheduleDaysFor(employeeId);

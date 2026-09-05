@@ -9,7 +9,7 @@ import { Button } from '../components/Button.jsx';
 import { DataTable, Pagination } from '../components/DataTable.jsx';
 import { Checkbox, SelectInput, TextInput } from '../components/Field.jsx';
 import { Notice, StatusBadge } from '../components/Feedback.jsx';
-import { validateEmail } from '../lib/validators.js';
+import { validateEmail, validatePassword } from '../lib/validators.js';
 
 /**
  * Administrator screen for user accounts.
@@ -99,9 +99,22 @@ export function UserManagement() {
     event.preventDefault();
     setFormError(null);
 
+    const errors = {};
+    if (!editing && !form.employeeId) {
+      errors.employeeId = 'This field is required.';
+    }
     const emailError = validateEmail(form.email, { required: true });
-    if (emailError) {
-      setFieldErrors({ email: emailError });
+    if (emailError) errors.email = emailError;
+
+    const passwordError = validatePassword(form.password, { required: !editing, min: 8 });
+    if (passwordError) errors.password = passwordError;
+
+    if (!editing && (!form.roles || form.roles.length === 0)) {
+      errors.roles = 'Select at least one role.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
@@ -142,17 +155,19 @@ export function UserManagement() {
   }
 
   const columns = [
-    { key: 'user', header: 'User', render: (row) => row.employee.name },
-    { key: 'position', header: 'Job Position', render: (row) => row.employee.jobTitle ?? '—' },
-    { key: 'email', header: 'Work Email', render: (row) => row.email },
+    { key: 'user', header: 'User', width: '22%', render: (row) => row.employee.name },
+    { key: 'position', header: 'Job Position', width: '20%', render: (row) => row.employee.jobTitle ?? '—' },
+    { key: 'email', header: 'Work Email', width: '28%', render: (row) => row.email },
     {
       key: 'roles',
       header: 'Role',
+      width: '20%',
       render: (row) => row.roles.map((role) => roleLabels[role] ?? role).join(', '),
     },
     {
       key: 'status',
       header: 'Status',
+      width: '10%',
       render: (row) => (
         <StatusBadge tone={row.active ? 'success' : 'danger'}>
           {row.active ? 'Active' : 'Inactive'}
@@ -176,21 +191,19 @@ export function UserManagement() {
 
       <div className="split">
         <div className="card stack">
-          <div className="row">
+          <div className="toolbar">
             <Button variant="primary" onClick={startNew}>
               + New User
             </Button>
             <input
-              className="input"
-              style={{ flex: 1, minWidth: 200 }}
+              className="input toolbar__search"
               aria-label="Search users"
               placeholder="Search users, employees or email…"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
             <select
-              className="select"
-              style={{ maxWidth: 190 }}
+              className="select toolbar__select"
               aria-label="Filter by role"
               value={roleFilter}
               onChange={(event) => {
@@ -299,7 +312,22 @@ export function UserManagement() {
                 ? 'Leave blank to keep the current password.'
                 : 'At least 8 characters. Share it with the employee.'
             }
-            onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+            onChange={(event) => {
+              const password = event.target.value;
+              setForm((current) => ({ ...current, password }));
+              if (fieldErrors.password) {
+                setFieldErrors((current) => ({
+                  ...current,
+                  password: validatePassword(password, { required: !editing, min: 8 }) ?? undefined,
+                }));
+              }
+            }}
+            onBlur={() =>
+              setFieldErrors((current) => ({
+                ...current,
+                password: validatePassword(form.password, { required: !editing, min: 8 }) ?? undefined,
+              }))
+            }
           />
 
           <div className="field">
