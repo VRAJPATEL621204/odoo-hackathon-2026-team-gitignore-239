@@ -8,4 +8,6 @@ ai-chatbot/client/dist
 .git
 .env
 server/.env
+ai-chatbot/.env
+ai-chatbot/client/.env
 npm-debug.log

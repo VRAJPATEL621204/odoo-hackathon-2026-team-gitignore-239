@@ -51,4 +51,10 @@ ENV PORT=5000 \
     CHATBOT_PORT=4500 \
     PEOPLEPAY360_API_BASE_URL=http://localhost:5000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && if [ \"$SEED_DATABASE\" = \"true\" ]; then npm run seed; fi && (cd /app/ai-chatbot && PORT=4500 node server/index.js &) && npm start"]
+
+# Migrations failing genuinely means the schema is broken — that should stop
+# the container. Seeding failing should not: it's demo data, and a working app
+# with no demo data beats a container that refuses to boot over it. seed.js
+# is itself resilient section-by-section (see prisma/seed.js), but the `||`
+# here is the last line of defence regardless of what goes wrong inside it.
+CMD ["sh", "-c", "npx prisma migrate deploy && if [ \"$SEED_DATABASE\" = \"true\" ]; then npm run seed || echo '[seed] failed — starting without demo data'; fi && (cd /app/ai-chatbot && PORT=4500 node server/index.js &) && npm start"]
