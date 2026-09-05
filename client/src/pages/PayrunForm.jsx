@@ -64,8 +64,9 @@ export function PayrunForm() {
   const send = () =>
     act('send', async () => {
       const result = await api.post(`/payroll/payruns/${id}/send`);
-      setSendResult(result);
-      toast.success(`Sent ${result.sent} payslip(s).`);
+      setSendResult({ queued: result.queued, pending: true });
+      toast.success(`Queued ${result.queued} payslip(s) for delivery.`);
+      window.setTimeout(() => record.refetch(), 2000);
       return result;
     });
 
@@ -223,20 +224,10 @@ export function PayrunForm() {
       )}
 
       {sendResult && (
-        <Notice tone={sendResult.failed > 0 ? 'warning' : 'success'}>
-          Sent {sendResult.sent} payslip(s)
-          {sendResult.failed > 0 && `, ${sendResult.failed} failed`}. Read the mail at{' '}
-          <a href="http://localhost:8025" target="_blank" rel="noreferrer">
-            the local inbox
-          </a>
-          .
-          {sendResult.results
-            .filter((result) => !result.ok)
-            .map((result) => (
-              <div key={result.employee}>
-                {result.employee}: {result.error}
-              </div>
-            ))}
+        <Notice tone="success">
+          {sendResult.pending
+            ? `Queued ${sendResult.queued} payslip(s) for email delivery.`
+            : `Sent ${sendResult.sent} payslip(s).`}
         </Notice>
       )}
 

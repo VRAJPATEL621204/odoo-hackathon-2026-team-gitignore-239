@@ -5,10 +5,8 @@ import { env } from './env.js';
 /**
  * Sending payslips.
  *
- * Points at Mailpit in development, which accepts every message and shows it at
- * http://localhost:8025 instead of delivering it. That makes the send a real
- * SMTP conversation with a real PDF attached — demoable offline, with no
- * external mail provider and no risk of actually emailing anybody.
+ * Uses the SMTP provider configured through the environment. The same
+ * transport handles local providers and production email services.
  */
 
 let transport;
@@ -23,10 +21,12 @@ function getTransport() {
       host: env.smtpHost,
       port: env.smtpPort,
       secure: env.smtpSecure,
-      // Without credentials this is Mailpit, which speaks plain SMTP on 1025
-      // and has no TLS to offer. With credentials it is a real provider, so the
-      // connection must be upgraded before the password crosses the wire —
-      // requireTLS makes nodemailer fail rather than fall back to plaintext.
+      pool: true,
+      maxConnections: 5,
+      maxMessages: 100,
+      // Authenticated providers must upgrade the connection before the password
+      // crosses the wire. requireTLS makes nodemailer fail rather than fall
+      // back to plaintext.
       ...(authenticated
         ? { requireTLS: !env.smtpSecure, auth: { user: env.smtpUser, pass: env.smtpPassword } }
         : { ignoreTLS: true }),

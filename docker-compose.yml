@@ -17,21 +17,8 @@ services:
       timeout: 5s
       retries: 5
 
-  # Local SMTP server that captures every message instead of delivering it.
-  # Sent mail is readable in the web UI at http://localhost:8025.
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: peoplepay360_mailpit
-    restart: always
-    ports:
-      - "${SMTP_PORT:-1025}:1025"
-      - "${MAILPIT_UI_PORT:-8025}:8025"
-    environment:
-      MP_MAX_MESSAGES: 500
-      MP_SMTP_AUTH_ACCEPT_ANY: 1
-      MP_SMTP_AUTH_ALLOW_INSECURE: 1
-
-  # Single unified container running both React Frontend and Express Backend API
+  # Single unified container running both React Frontend and Express Backend API.
+  # Email is sent through the authenticated SMTP provider configured in .env.
   app:
     build:
       context: .
@@ -41,22 +28,24 @@ services:
     environment:
       PORT: 5000
       NODE_ENV: production
+      SEED_DATABASE: ${SEED_DATABASE:-false}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-peoplepay360}?schema=public&connection_limit=10&pool_timeout=10
       JWT_SECRET: ${JWT_SECRET:-c8d37f81a5e42b6d910243e8c9f5a7b134d6e8f0a2b4c6e81012141618202224}
       JWT_EXPIRES_IN_SECONDS: 28800
       COMPANY_NAME: ${COMPANY_NAME:-OXP Pvt Ltd}
       COMPANY_TIMEZONE: ${COMPANY_TIMEZONE:-Asia/Kolkata}
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
-      MAIL_FROM: ${MAIL_FROM:-payroll@peoplepay360.test}
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in .env}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:?Set SMTP_USER in .env}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:?Set SMTP_PASSWORD in .env}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      MAIL_FROM: ${MAIL_FROM:?Set MAIL_FROM in .env}
     ports:
       - "5173:5000"
       - "5000:5000"
     depends_on:
       postgres:
         condition: service_healthy
-      mailpit:
-        condition: service_started
 
 volumes:
   postgres_data:

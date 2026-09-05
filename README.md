@@ -12,14 +12,13 @@ PDF generation, bulk email and a live payroll dashboard.
 
 ### 🚀 1-Command Startup (Recommended)
 
-Run the entire platform (PostgreSQL, Mailpit, Express API with automatic database migration & seeding, and React Frontend) with a single command:
+Run the entire platform (PostgreSQL, Express API with automatic database migration & seeding, React Frontend, and external SMTP email) with a single command:
 
 ```bash
 docker compose up --build -d
 ```
 
 - **Application:** http://localhost:5173
-- **Mailpit Web Inbox:** http://localhost:8025
 - **API Health:** http://localhost:5000/api/health
 
 To stop the containers:
@@ -49,10 +48,10 @@ Then generate a session secret and put it in `server/.env` as `JWT_SECRET`
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-#### 2. Start PostgreSQL and Mailpit
+#### 2. Start PostgreSQL
 
 ```bash
-docker compose up postgres mailpit -d
+docker compose up postgres -d
 ```
 
 Wait until the database reports healthy before running Prisma:
@@ -129,7 +128,7 @@ server/                 Express + Prisma, JavaScript, ES modules
   prisma/seed.js        demo employees and the bootstrap administrator
   prisma/schema.prisma  database schema
 
-docker-compose.yml      PostgreSQL 16 and Mailpit
+docker-compose.yml      PostgreSQL 16 and external SMTP
 ```
 
 ## HR records
@@ -237,9 +236,9 @@ look at before payroll is finalised. A paid payrun is historical data: it is
 never recomputed, since rerunning it against rules edited since would rewrite
 what people were actually paid.
 
-Payslips are generated as PDFs with pdfkit and emailed through Mailpit, so the
-send is a real SMTP conversation with a real attachment, demoable offline. Read
-what was sent at http://localhost:8025.
+Payslips are generated as PDFs with pdfkit and emailed through the authenticated
+SMTP provider configured in `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`,
+`SMTP_PASSWORD`, and `MAIL_FROM`.
 
 ---
 

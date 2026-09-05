@@ -23,9 +23,9 @@ console.log(`  secure    ${env.smtpSecure} ${env.smtpSecure ? '(TLS from the sta
 console.log(`  user      ${env.smtpUser || '(none)'}`);
 console.log(`  password  ${env.smtpPassword ? `${env.smtpPassword.length} characters` : '(none)'}`);
 console.log(`  from      ${env.mailFrom}`);
-console.log(`  mode      ${authenticated ? 'authenticated provider' : 'unauthenticated (Mailpit)'}\n`);
+console.log(`  mode      ${authenticated ? 'authenticated provider' : 'unauthenticated SMTP'}\n`);
 
-if (!authenticated && env.smtpHost !== 'localhost') {
+if (!authenticated) {
   console.error('SMTP_USER or SMTP_PASSWORD is empty, but the host is not local.');
   console.error('A real provider will refuse an unauthenticated connection.\n');
 }

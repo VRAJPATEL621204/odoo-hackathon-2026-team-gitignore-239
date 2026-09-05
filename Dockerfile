@@ -33,4 +33,4 @@ COPY --from=client-builder /app/client/dist /app/client/dist
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && npm run seed && npm start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && if [ \"$SEED_DATABASE\" = \"true\" ]; then npm run seed; fi && npm start"]

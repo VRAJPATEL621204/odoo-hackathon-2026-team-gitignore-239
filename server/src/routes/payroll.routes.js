@@ -39,6 +39,8 @@ import {
 
 export const payrollRouter = Router();
 
+const activeEmailJobs = new Set();
+
 const canRead = [requireAuth, requirePermission(PERMISSIONS.PAYROLL_READ)];
 const canProcess = [requireAuth, requirePermission(PERMISSIONS.PAYROLL_PROCESS)];
 const canConfigure = [requireAuth, requirePermission(PERMISSIONS.PAYROLL_CONFIGURE)];
@@ -289,7 +291,8 @@ payrollRouter.post(
   '/payroll/payruns/:id/send',
   canProcess,
   asyncHandler(async (req, res) => {
-    const payrun = await getPayrun(readId(req.params.id));
+    const payrunId = readId(req.params.id);
+    const payrun = await getPayrun(payrunId);
 
     if (payrun.status === 'DRAFT') {
       throw conflict(
@@ -298,21 +301,39 @@ payrollRouter.post(
       );
     }
 
-    const results = [];
-    for (const summary of payrun.payslips) {
-      const payslip = await getPayslip(summary.id);
-      const pdf = await renderPayslipPdf(payslip);
-      const result = await sendPayslipEmail({
-        payslip,
-        pdf,
-        filename: payslipFilename(payslip),
+    if (activeEmailJobs.has(payrunId)) {
+      return res.status(409).json({
+        error: { code: 'EMAILS_ALREADY_SENDING', message: 'Payslip emails are already being sent.' },
       });
-      if (result.ok) await markPayslipSent(payslip.id);
-      results.push(result);
     }
 
-    const sent = results.filter((result) => result.ok).length;
-    res.json({ sent, failed: results.length - sent, results });
+    activeEmailJobs.add(payrunId);
+    res.status(202).json({ queued: payrun.payslips.length });
+
+    void (async () => {
+      try {
+        const batchSize = 5;
+        for (let index = 0; index < payrun.payslips.length; index += batchSize) {
+          const batch = payrun.payslips.slice(index, index + batchSize);
+          await Promise.all(
+            batch.map(async (summary) => {
+              const payslip = await getPayslip(summary.id);
+              const pdf = await renderPayslipPdf(payslip);
+              const result = await sendPayslipEmail({
+                payslip,
+                pdf,
+                filename: payslipFilename(payslip),
+              });
+              if (result.ok) await markPayslipSent(payslip.id);
+            })
+          );
+        }
+      } catch (error) {
+        console.error(`Payslip email job failed for payrun ${payrunId}:`, error);
+      } finally {
+        activeEmailJobs.delete(payrunId);
+      }
+    })();
   })
 );
 

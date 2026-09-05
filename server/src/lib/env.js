@@ -60,9 +60,8 @@ export const env = {
   companyTimezone: optional('COMPANY_TIMEZONE', 'Asia/Kolkata'),
   smtpHost: optional('SMTP_HOST', 'localhost'),
   smtpPort: integer('SMTP_PORT', 1025),
-  // Credentials are optional because Mailpit needs none. When they are set the
-  // connection authenticates and upgrades to TLS, which every real provider
-  // requires. Leaving them unset keeps local development working unchanged.
+  // SMTP credentials enable authenticated providers and TLS. They are optional
+  // here so the mail test can report a useful connection error when omitted.
   smtpUser: optional('SMTP_USER', ''),
   smtpPassword: optional('SMTP_PASSWORD', ''),
   // Port 465 is TLS from the first byte; 587 starts plain and upgrades with
