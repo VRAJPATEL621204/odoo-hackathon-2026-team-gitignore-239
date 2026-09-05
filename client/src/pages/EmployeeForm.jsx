@@ -8,9 +8,10 @@ import { useAuth, PERMISSIONS } from '../auth/AuthProvider.jsx';
 import { useToast } from '../components/ToastProvider.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button } from '../components/Button.jsx';
-import { SelectInput, TextArea, TextInput } from '../components/Field.jsx';
+import { NumberInput, SelectInput, TextArea, TextInput } from '../components/Field.jsx';
 import { ErrorState, Notice, StatusBadge } from '../components/Feedback.jsx';
 import { formatDate, formatHours, formatMoney, initials, statusTone, titleCase, toDateInput } from '../lib/format.js';
+import { runValidation, validateBankAccount, validateEmail, validatePhone } from '../lib/validators.js';
 
 /**
  * One employee: their HR record, the related records reached from it, and the
@@ -122,11 +123,44 @@ export function EmployeeForm() {
   const set = (field) => (event) =>
     setForm((current) => ({ ...current, [field]: event.target.value }));
 
+  /** `formattedValue` keeps the +91 prefix the API stores alongside the digits. */
+  const setPhone = (field) => (values) =>
+    setForm((current) => ({ ...current, [field]: values.formattedValue }));
+
+  /** Only digits 6-9xxxxxxxxx (a 10-digit Indian mobile number) are accepted. */
+  const isAllowedPhone = (values) => values.value === '' || /^[6-9]\d{0,9}$/.test(values.value);
+
+  // Field-level checks that mirror the server's, so a bad email or phone is
+  // caught before the round trip instead of only after a 422 comes back.
+  const FORM_VALIDATION = [
+    ['workEmail', validateEmail, { required: true }],
+    ['workPhone', validatePhone],
+    ['personalEmail', validateEmail],
+    ['personalPhone', validatePhone],
+    ['bankAccount', validateBankAccount],
+  ];
+
+  /** Validates one field on blur, so feedback shows up before submit. */
+  const validateField = (field, check, options) => () => {
+    const message = check(form[field], options);
+    setFieldErrors((current) => ({ ...current, [field]: message ?? undefined }));
+  };
+
   async function onSubmit(event) {
     event.preventDefault();
+    setFormError(null);
+
+    const clientErrors = runValidation(form, FORM_VALIDATION);
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      if (['personalEmail', 'personalPhone', 'bankAccount'].some((field) => clientErrors[field])) {
+        setTab('private');
+      }
+      return;
+    }
+
     setSaving(true);
     setFieldErrors({});
-    setFormError(null);
 
     try {
       const body = toBody(form);
@@ -266,6 +300,7 @@ export function EmployeeForm() {
                 error={fieldErrors.workEmail}
                 disabled={!editable}
                 onChange={set('workEmail')}
+                onBlur={validateField('workEmail', validateEmail, { required: true })}
               />
               <SelectInput
                 label="Department"
@@ -305,12 +340,18 @@ export function EmployeeForm() {
                 )}
                 onChange={set('managerId')}
               />
-              <TextInput
+              <NumberInput
                 label="Work Phone"
+                prefix="+91 "
+                decimalScale={0}
+                allowNegative={false}
+                isAllowed={isAllowedPhone}
+                placeholder="+91 9876543210"
                 value={form.workPhone}
                 error={fieldErrors.workPhone}
                 disabled={!editable}
-                onChange={set('workPhone')}
+                onValueChange={setPhone('workPhone')}
+                onBlur={validateField('workPhone', validatePhone)}
               />
               <TextInput
                 label="Work Location"
@@ -355,13 +396,20 @@ export function EmployeeForm() {
                 error={fieldErrors.personalEmail}
                 disabled={!editable}
                 onChange={set('personalEmail')}
+                onBlur={validateField('personalEmail', validateEmail)}
               />
-              <TextInput
+              <NumberInput
                 label="Personal Phone"
+                prefix="+91 "
+                decimalScale={0}
+                allowNegative={false}
+                isAllowed={isAllowedPhone}
+                placeholder="+91 9876543210"
                 value={form.personalPhone}
                 error={fieldErrors.personalPhone}
                 disabled={!editable}
-                onChange={set('personalPhone')}
+                onValueChange={setPhone('personalPhone')}
+                onBlur={validateField('personalPhone', validatePhone)}
               />
               <TextInput
                 label="Date of Birth"
@@ -378,6 +426,7 @@ export function EmployeeForm() {
                 error={fieldErrors.bankAccount}
                 disabled={!editable}
                 onChange={set('bankAccount')}
+                onBlur={validateField('bankAccount', validateBankAccount)}
               />
               <div style={{ gridColumn: '1 / -1' }}>
                 <TextArea

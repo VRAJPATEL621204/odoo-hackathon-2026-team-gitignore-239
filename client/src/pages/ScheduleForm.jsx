@@ -8,6 +8,8 @@ import { useAuth, PERMISSIONS } from '../auth/AuthProvider.jsx';
 import { useToast } from '../components/ToastProvider.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button } from '../components/Button.jsx';
+import { NumericFormat } from 'react-number-format';
+
 import { Checkbox, SelectInput, TextInput } from '../components/Field.jsx';
 import { ErrorState, Notice } from '../components/Feedback.jsx';
 import { formatHours, minutesToTime, timeToMinutes } from '../lib/format.js';
@@ -238,16 +240,18 @@ export function ScheduleForm() {
                         />
                       </td>
                       <td>
-                        <input
+                        <NumericFormat
                           className="input"
-                          type="number"
-                          min="0"
-                          step="5"
                           aria-label="Break in minutes"
+                          decimalScale={0}
+                          allowNegative={false}
+                          isAllowed={(values) =>
+                            values.floatValue === undefined || values.floatValue <= 1440
+                          }
                           value={row.breakMinutes}
                           disabled={!editable}
-                          onChange={(event) =>
-                            updateRow(index, { breakMinutes: event.target.value })
+                          onValueChange={(values) =>
+                            updateRow(index, { breakMinutes: values.value })
                           }
                         />
                       </td>

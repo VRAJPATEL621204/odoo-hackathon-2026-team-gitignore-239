@@ -8,7 +8,7 @@ import { useAuth, PERMISSIONS } from '../auth/AuthProvider.jsx';
 import { useToast } from '../components/ToastProvider.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button } from '../components/Button.jsx';
-import { SelectInput, TextArea, TextInput } from '../components/Field.jsx';
+import { NumberInput, SelectInput, TextArea, TextInput } from '../components/Field.jsx';
 import { ErrorState, Notice, StatusBadge } from '../components/Feedback.jsx';
 import { formatMoney, statusTone, titleCase, toDateInput } from '../lib/format.js';
 
@@ -76,6 +76,9 @@ export function ContractForm() {
 
   const set = (field) => (event) =>
     setForm((current) => ({ ...current, [field]: event.target.value }));
+
+  const setNumber = (field) => (values) =>
+    setForm((current) => ({ ...current, [field]: values.value }));
 
   /**
    * Copies the chosen employee's department, position and schedule onto the
@@ -211,16 +214,19 @@ export function ContractForm() {
               disabled={!editable}
               onChange={set('endDate')}
             />
-            <TextInput
+            <NumberInput
               label="Wage / Month"
-              type="number"
-              min="0"
-              step="0.01"
               required
+              thousandSeparator=","
+              thousandsGroupStyle="lakh"
+              prefix="₹"
+              decimalScale={2}
+              allowNegative={false}
+              isAllowed={(values) => values.floatValue === undefined || values.floatValue <= 100000000}
               value={form.wage}
               error={fieldErrors.wage}
               disabled={!editable}
-              onChange={set('wage')}
+              onValueChange={setNumber('wage')}
             />
             <SelectInput
               label="Working Schedule"

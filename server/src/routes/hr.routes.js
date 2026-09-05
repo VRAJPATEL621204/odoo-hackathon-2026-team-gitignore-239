@@ -293,18 +293,18 @@ function readEmployee(body, { required }) {
   const check = validator(body);
   check.string('name', { required, min: 2, max: 120 });
   check.email('workEmail', { required });
-  check.string('workPhone', { max: 40 });
+  check.phone('workPhone');
   check.string('jobTitle', { max: 120 });
   check.string('workLocation', { max: 120 });
   check.id('departmentId');
   check.id('jobPositionId');
   check.id('managerId');
   check.id('workingScheduleId');
-  check.string('personalEmail', { max: 254 });
-  check.string('personalPhone', { max: 40 });
+  check.email('personalEmail');
+  check.phone('personalPhone');
   check.string('address', { max: 300 });
   check.date('dateOfBirth');
-  check.string('bankAccount', { max: 60 });
+  check.bankAccount('bankAccount');
   if (body.status !== undefined) check.enum('status', ['ACTIVE', 'INACTIVE'], { required: true });
 
   return nullableIds(body, check.result(), [
