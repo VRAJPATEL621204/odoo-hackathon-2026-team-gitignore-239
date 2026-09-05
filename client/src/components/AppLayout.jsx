@@ -3,6 +3,7 @@ import { NavLink, Outlet, Link, useLocation, useNavigate } from 'react-router-do
 
 import { PERMISSIONS, useAuth } from '../auth/AuthProvider.jsx';
 import { AttendanceWidget } from './AttendanceWidget.jsx';
+import AiChatbotWidget from './ai/AiChatbotWidget.jsx';
 
 /**
  * The application shell: top navigation plus the routed page.
@@ -235,6 +236,17 @@ export function AppLayout() {
       <main className="page">
         <Outlet />
       </main>
+
+      {/* Standalone Moveable Material You AI Chatbot Widget */}
+      <AiChatbotWidget
+        user={{
+          id: user?.employee?.id ?? user?.employeeId ?? '1',
+          name: user?.employee?.name ?? user?.email ?? 'User',
+          token: 'Bearer peopay360-session',
+        }}
+        onNavigate={(path) => navigate(path)}
+        defaultOpen={false}
+      />
     </div>
   );
 }

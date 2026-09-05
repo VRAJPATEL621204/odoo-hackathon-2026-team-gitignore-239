@@ -51,9 +51,16 @@ services:
       ACTION_COOLDOWN_SECONDS: ${ACTION_COOLDOWN_SECONDS:-10}
       EMAIL_COOLDOWN_SECONDS: ${EMAIL_COOLDOWN_SECONDS:-300}
       PDF_COOLDOWN_SECONDS: ${PDF_COOLDOWN_SECONDS:-5}
+      # AI Chatbot Configuration
+      CHATBOT_PORT: 4500
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_PROVIDER: ${AI_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      PEOPLEPAY360_API_BASE_URL: http://localhost:5000
     ports:
       - "5173:5000"
       - "5000:5000"
+      - "4500:4500"
     depends_on:
       postgres:
         condition: service_healthy

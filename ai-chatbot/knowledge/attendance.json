@@ -1,0 +1,9 @@
+{
+  "late": "You are marked late if you check in after your scheduled shift start time (e.g. 09:00 AM) beyond the 15-minute grace period. Accumulating three late check-ins in a month triggers a notification to your reporting manager.",
+  "absent": "You are marked absent for any scheduled working day with no registered punch and no approved leave covering that day. Unexcused absences may impact pay calculation.",
+  "gracePeriod": "PeoplePay360 allows a standard 15-minute grace period for morning check-in (up to 09:15 AM for a 09:00 AM shift) without being flagged as late.",
+  "shiftTimings": "Standard general shift runs Monday to Friday from 09:00 AM to 06:00 PM (with a 1-hour lunch break). Flexible core hours are 10:00 AM to 04:00 PM.",
+  "overtime": "Overtime is counted for any pre-approved work performed beyond the standard 8 working hours per day or on weekends. Overtime is compensated at 1.5x standard hourly rate or converted to compensatory off (comp-off).",
+  "biometricPunch": "Punches can be recorded via the office biometric scanner, the PeoplePay360 mobile app with geofencing, or web clock-in when working remotely.",
+  "regularization": "If you forgot to clock in or had technical issues with a punch, you can submit an Attendance Regularization request within 3 days under the Attendance page."
+}

@@ -1,0 +1,24 @@
+{
+  "name": "ai-chatbot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone AI chatbot service for PeoplePay360. Independent codebase, talks to the main app only over HTTP.",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "uuid": "^9.0.1"
+  }
+}

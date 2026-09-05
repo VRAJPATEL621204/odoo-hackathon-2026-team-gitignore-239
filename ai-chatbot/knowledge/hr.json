@@ -1,0 +1,8 @@
+{
+  "general": "PeoplePay360 AI Assistant provides verified self-service answers for employee attendance, leave balances, compensation summaries, team directories, and company HR policies.",
+  "credentials": "This assistant never handles passwords, OTPs, or authentication credentials. Use PeoplePay360's secure login and profile settings page for credential updates.",
+  "probation": "The standard probation period for new employees is 3 to 6 months depending on role seniority. A confirmation review is conducted by your manager prior to completion.",
+  "noticePeriod": "Standard employee notice period is 60 calendar days (or 90 days for management roles). Early release is subject to manager approval and knowledge handover.",
+  "workModel": "PeoplePay360 operates on a modern hybrid working policy: employees may work up to 2 days per week remotely with team alignment, with 3 days in-office collaboration.",
+  "codeOfConduct": "Employees are expected to maintain professional conduct, respect workplace diversity, protect proprietary source code and customer data, and adhere to NDAs."
+}
