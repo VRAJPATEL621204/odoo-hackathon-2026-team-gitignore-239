@@ -18,8 +18,6 @@ services:
       retries: 5
 
   # Local SMTP server that captures every message instead of delivering it.
-  # The payslip email feature is therefore a real SMTP send with real PDF
-  # attachments, demoable offline, with no external mail provider involved.
   # Sent mail is readable in the web UI at http://localhost:8025.
   mailpit:
     image: axllent/mailpit:latest
@@ -32,6 +30,33 @@ services:
       MP_MAX_MESSAGES: 500
       MP_SMTP_AUTH_ACCEPT_ANY: 1
       MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
+  # Single unified container running both React Frontend and Express Backend API
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: peoplepay360_app
+    restart: always
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-peoplepay360}?schema=public&connection_limit=10&pool_timeout=10
+      JWT_SECRET: ${JWT_SECRET:-c8d37f81a5e42b6d910243e8c9f5a7b134d6e8f0a2b4c6e81012141618202224}
+      JWT_EXPIRES_IN_SECONDS: 28800
+      COMPANY_NAME: ${COMPANY_NAME:-OXP Pvt Ltd}
+      COMPANY_TIMEZONE: ${COMPANY_TIMEZONE:-Asia/Kolkata}
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      MAIL_FROM: ${MAIL_FROM:-payroll@peoplepay360.test}
+    ports:
+      - "5173:5000"
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
 
 volumes:
   postgres_data:
