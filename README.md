@@ -10,11 +10,32 @@ PDF generation, bulk email and a live payroll dashboard.
 
 ## Quickstart
 
+### 🚀 1-Command Startup (Recommended)
+
+Run the entire platform (PostgreSQL, Mailpit, Express API with automatic database migration & seeding, and React Frontend) with a single command:
+
+```bash
+docker compose up --build -d
+```
+
+- **Application:** http://localhost:5173
+- **Mailpit Web Inbox:** http://localhost:8025
+- **API Health:** http://localhost:5000/api/health
+
+To stop the containers:
+```bash
+docker compose down
+```
+
+---
+
+### 💻 Manual Local Development (Alternative)
+
 > **Windows note:** clone into a short path such as `D:\odoo-hackathon-2026`.
 > Deeply nested paths hit the Windows 260-character limit and `git clone` fails
 > with `Filename too long`.
 
-### 1. Environment files
+#### 1. Environment files
 
 ```bash
 cp .env.example .env
@@ -28,10 +49,10 @@ Then generate a session secret and put it in `server/.env` as `JWT_SECRET`
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-### 2. Start PostgreSQL and Mailpit
+#### 2. Start PostgreSQL and Mailpit
 
 ```bash
-docker compose up -d
+docker compose up postgres mailpit -d
 ```
 
 Wait until the database reports healthy before running Prisma:
