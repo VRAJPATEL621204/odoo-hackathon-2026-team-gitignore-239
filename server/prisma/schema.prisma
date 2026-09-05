@@ -6,3 +6,537 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+/// Counters behind human-readable record numbers such as CON/2026/0042 and
+/// PAY/2026/02/0001. One row per (key, year); `lastNumber` is bumped with an
+/// atomic increment inside the same transaction that creates the record, so two
+/// concurrent requests can never be handed the same number.
+model Sequence {
+  id         Int    @id @default(autoincrement())
+  key        String
+  year       Int
+  lastNumber Int    @default(0)
+
+  @@unique([key, year])
+}
+
+/// Access levels an administrator can grant to a user account.
+///
+/// A user holds a set of roles rather than one, because the reference flow
+/// shows accounts such as "Payroll Admin" that also need ordinary employee
+/// self-service. Permissions are derived from this set in domain/roles.js.
+enum Role {
+  ADMIN
+  HR_MANAGER
+  PAYROLL_ADMIN
+  PAYROLL_USER
+  TIMEOFF_ADMIN
+  TIMEOFF_USER
+  EMPLOYEE
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+/// A person employed by the company.
+///
+/// Phase 1 stores only the identity fields the login and user-management
+/// screens need. Departments, contracts, schedules and the rest of the HR
+/// record are added in phase 2.
+model Employee {
+  id        Int            @id @default(autoincrement())
+  name      String
+  workEmail String         @unique
+  workPhone String?
+  jobTitle  String?
+  status    EmployeeStatus @default(ACTIVE)
+
+  // Work information.
+  departmentId      Int?
+  department        Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  jobPositionId     Int?
+  jobPosition       JobPosition?     @relation(fields: [jobPositionId], references: [id], onDelete: SetNull)
+  managerId         Int?
+  manager           Employee?        @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports           Employee[]       @relation("EmployeeManager")
+  workLocation      String?
+  workingScheduleId Int?
+  workingSchedule   WorkingSchedule? @relation(fields: [workingScheduleId], references: [id], onDelete: SetNull)
+
+  // Private information. Kept on the employee rather than the contract because
+  // it belongs to the person and outlives any single contract.
+  personalEmail String?
+  personalPhone String?
+  address       String?
+  dateOfBirth   DateTime? @db.Date
+  /// Payroll refuses to pay a payslip to an employee without one, and the
+  /// dashboard counts the employees still missing it.
+  bankAccount   String?
+
+  user                User?
+  contracts           Contract[]
+  attendances         Attendance[]
+  timeOffRequests     TimeOffRequest[]
+  timeOffAllocations  TimeOffAllocation[]
+  payslips            Payslip[]
+  approvedRequests    TimeOffRequest[]    @relation("RequestApprover")
+  approvedAllocations TimeOffAllocation[] @relation("AllocationApprover")
+  managedTeam         Department[]        @relation("DepartmentManager")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([departmentId])
+  @@index([status])
+}
+
+/// A unit of the organisation. Employees and contracts point at one, and the
+/// payroll dashboard groups salary cost by it.
+model Department {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  managerId Int?
+  manager   Employee? @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  employees    Employee[]
+  jobPositions JobPosition[]
+  contracts    Contract[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// A role somebody is hired into, such as "Payroll Specialist".
+model JobPosition {
+  id           Int         @id @default(autoincrement())
+  name         String      @unique
+  departmentId Int?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  description  String?
+  active       Boolean     @default(true)
+
+  employees Employee[]
+  contracts Contract[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// The weekly working pattern an employee is expected to follow.
+///
+/// Days per week and hours per week are not stored: they are derived from the
+/// lines, so the summary can never disagree with the schedule itself.
+model WorkingSchedule {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  timezone String  @default("Asia/Kolkata")
+  active   Boolean @default(true)
+
+  days      ScheduleDay[]
+  employees Employee[]
+  contracts Contract[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// One working day inside a schedule.
+///
+/// Times are minutes from midnight rather than DateTime, because a schedule is
+/// a recurring pattern with no calendar date attached. A day may appear more
+/// than once, which is how a split shift is expressed.
+model ScheduleDay {
+  id           Int             @id @default(autoincrement())
+  scheduleId   Int
+  schedule     WorkingSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  /// 0 = Monday through 6 = Sunday.
+  dayOfWeek    Int
+  startMinutes Int
+  endMinutes   Int
+  breakMinutes Int             @default(0)
+
+  @@index([scheduleId])
+}
+
+enum ContractStatus {
+  DRAFT
+  RUNNING
+  EXPIRED
+}
+
+/// The employment agreement payroll reads to find the wage for a period.
+///
+/// An employee accumulates contracts over time; payroll picks the one covering
+/// the payslip period, which is why the history is kept rather than overwritten.
+model Contract {
+  id         Int            @id @default(autoincrement())
+  /// Human-readable number such as CON/2026/0042, from the Sequence counter.
+  reference  String         @unique
+  employeeId Int
+  employee   Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  startDate  DateTime       @db.Date
+  endDate    DateTime?      @db.Date
+  wage       Decimal        @db.Decimal(12, 2)
+  status     ContractStatus @default(DRAFT)
+
+  departmentId      Int?
+  department        Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  jobPositionId     Int?
+  jobPosition       JobPosition?     @relation(fields: [jobPositionId], references: [id], onDelete: SetNull)
+  workingScheduleId Int?
+  workingSchedule   WorkingSchedule? @relation(fields: [workingScheduleId], references: [id], onDelete: SetNull)
+
+  notes    String?
+  payslips Payslip[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, startDate])
+  @@index([status])
+}
+
+/// A login account.
+///
+/// Accounts are created by an administrator and always point at an employee,
+/// so every action in the system can be traced back to a person. The employee
+/// link is unique: one employee cannot hold two accounts.
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  passwordHash String
+  roles        Role[]
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  employeeId   Int       @unique
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+}
+
+/// One employee's attendance for one working day.
+///
+/// `date` is the business day the record belongs to, computed from the check-in
+/// instant in the company timezone; the check-in and check-out themselves are
+/// stored as instants. Both are needed: the instants are what worked hours are
+/// measured from, and the business day is what a report groups by.
+///
+/// There is no unique constraint on (employee, date): somebody who checks out
+/// for the afternoon and back in later has two sessions on one day, and worked
+/// hours are the sum.
+model Attendance {
+  id             Int              @id @default(autoincrement())
+  employeeId     Int
+  employee       Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date           DateTime         @db.Date
+  /// Null on a record entered to mark an absence.
+  checkIn        DateTime?
+  /// Null while the employee is still checked in.
+  checkOut       DateTime?
+  status         AttendanceStatus @default(PRESENT)
+  /// Derived from check in and check out; zero while a session is open.
+  workedHours    Decimal          @default(0) @db.Decimal(6, 2)
+  /// Hours beyond what the employee's working schedule expects for that day.
+  overtimeHours  Decimal          @default(0) @db.Decimal(6, 2)
+  /// True once somebody corrected the record by hand, so the dashboard can
+  /// report how much of the data is system-generated.
+  manuallyEdited Boolean          @default(false)
+  note           String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, date])
+  @@index([date])
+  @@index([status])
+}
+
+enum TimeOffUnit {
+  DAYS
+  HOURS
+}
+
+/// Who signs off a request of this type.
+enum TimeOffApprover {
+  MANAGER
+  OFFICER
+}
+
+enum TimeOffStatus {
+  TO_APPROVE
+  APPROVED
+  REFUSED
+  CANCELLED
+}
+
+/// A kind of leave, and the policy that governs it.
+///
+/// The type is what decides behaviour: whether a request has to draw on an
+/// allocation, who approves it, and how payroll treats the days.
+model TimeOffType {
+  id                 Int             @id @default(autoincrement())
+  name               String          @unique
+  unit               TimeOffUnit     @default(DAYS)
+  /// When true, a request of this type is only approvable against an approved
+  /// allocation with enough balance left.
+  requiresAllocation Boolean         @default(true)
+  approvedBy         TimeOffApprover @default(MANAGER)
+  /// What payroll should record for these days, such as "Leave Work Entry".
+  workEntry          String?
+  /// True when days of this type are not paid, so payroll deducts them.
+  unpaid             Boolean         @default(false)
+  /// Colour the UI tags this type with, so a calendar reads at a glance.
+  color              String?
+  description        String?
+  active             Boolean         @default(true)
+
+  requests    TimeOffRequest[]
+  allocations TimeOffAllocation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// A grant of leave balance to one employee for one type.
+///
+/// Only an approved allocation creates balance. Taken and remaining are never
+/// stored: they are summed from the approved requests that consumed it, so the
+/// balance cannot drift from the requests it is made of.
+model TimeOffAllocation {
+  id          Int           @id @default(autoincrement())
+  employeeId  Int
+  employee    Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  typeId      Int
+  type        TimeOffType   @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  /// In the unit of the type: days for a day type, hours for an hour type.
+  amount      Decimal       @db.Decimal(6, 2)
+  status      TimeOffStatus @default(TO_APPROVE)
+  approverId  Int?
+  approver    Employee?     @relation("AllocationApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  /// The period the balance is good for, such as the 2026 policy year.
+  validFrom   DateTime?     @db.Date
+  validTo     DateTime?     @db.Date
+  description String?
+
+  requests TimeOffRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, typeId])
+  @@index([status])
+}
+
+/// A request for time off, and the approval it is waiting on.
+model TimeOffRequest {
+  id           Int                @id @default(autoincrement())
+  employeeId   Int
+  employee     Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  typeId       Int
+  type         TimeOffType        @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  startDate    DateTime           @db.Date
+  endDate      DateTime           @db.Date
+  /// Working days, or hours for an hour type. Derived from the employee's
+  /// working schedule so a weekend inside a range is not charged as leave.
+  duration     Decimal            @db.Decimal(6, 2)
+  status       TimeOffStatus      @default(TO_APPROVE)
+  approverId   Int?
+  approver     Employee?          @relation("RequestApprover", fields: [approverId], references: [id], onDelete: SetNull)
+  /// The allocation this request consumed, recorded on approval so the payslip
+  /// and the balance screen can say which one it came out of.
+  allocationId Int?
+  allocation   TimeOffAllocation? @relation(fields: [allocationId], references: [id], onDelete: SetNull)
+  reason       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, startDate])
+  @@index([status])
+  @@index([typeId])
+}
+
+/// What a rule contributes to the payslip.
+///
+/// The category is what makes the totals possible: gross is the basic plus the
+/// allowances, net is the gross plus the deductions, and a rule says which of
+/// those it belongs to rather than the engine guessing from its name.
+enum RuleCategory {
+  BASIC
+  ALLOWANCE
+  GROSS
+  DEDUCTION
+  NET
+}
+
+/// How a rule works out its amount.
+enum ComputationMethod {
+  /// The exact value entered on the rule, such as a meal allowance of 2,000.
+  FIXED
+  /// A percentage of a chosen base, such as HRA at 50% of basic.
+  PERCENTAGE
+  /// An expression, for anything the first two cannot express: attendance-based
+  /// pay, overtime, unpaid leave, or arithmetic across several rules.
+  FORMULA
+}
+
+/// What a percentage rule takes its percentage of.
+enum PercentageBase {
+  CONTRACT_WAGE
+  BASIC
+  GROSS
+}
+
+enum PayrunStatus {
+  DRAFT
+  COMPUTED
+  VALIDATED
+  PAID
+}
+
+enum PayslipStatus {
+  DRAFT
+  DONE
+  PAID
+}
+
+/// A named set of salary rules — the calculation a payslip is produced by.
+model SalaryStructure {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  active Boolean @default(true)
+  notes  String?
+
+  rules    SalaryRule[]
+  payruns  Payrun[]
+  payslips Payslip[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// One line of the salary calculation.
+///
+/// Rules run in `sequence` order and each one can read the rules before it, so
+/// the order is part of the calculation rather than a display preference.
+model SalaryRule {
+  id          Int             @id @default(autoincrement())
+  structureId Int
+  structure   SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+  name        String
+  /// Short identifier a formula refers to, such as BASIC or HRA.
+  code        String
+  category    RuleCategory
+  sequence    Int
+
+  computation    ComputationMethod @default(FIXED)
+  /// Used by FIXED.
+  amount         Decimal?          @db.Decimal(12, 2)
+  /// Used by PERCENTAGE, as a percentage rather than a fraction: 50 means 50%.
+  percentage     Decimal?          @db.Decimal(6, 2)
+  percentageBase PercentageBase?
+  /// Used by FORMULA, evaluated by the expression engine, never by eval().
+  formula        String?
+  /// Multiplies whatever the computation produced.
+  quantity       Decimal           @default(1) @db.Decimal(8, 2)
+  active         Boolean           @default(true)
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([structureId, code])
+  @@index([structureId, sequence])
+}
+
+/// Payroll processing for one period.
+model Payrun {
+  id          Int             @id @default(autoincrement())
+  name        String
+  structureId Int
+  structure   SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Restrict)
+  periodStart DateTime        @db.Date
+  periodEnd   DateTime        @db.Date
+  status      PayrunStatus    @default(DRAFT)
+  paidAt      DateTime?
+
+  payslips Payslip[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([periodStart])
+  @@index([status])
+}
+
+/// One employee's pay for one period.
+///
+/// The totals are stored alongside the lines because a paid payslip is a
+/// historical record: recomputing it later against edited rules would rewrite
+/// what somebody was actually paid.
+model Payslip {
+  id          Int             @id @default(autoincrement())
+  reference   String          @unique
+  payrunId    Int?
+  payrun      Payrun?         @relation(fields: [payrunId], references: [id], onDelete: SetNull)
+  employeeId  Int
+  employee    Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  contractId  Int?
+  contract    Contract?       @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  structureId Int
+  structure   SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Restrict)
+  periodStart DateTime        @db.Date
+  periodEnd   DateTime        @db.Date
+  status      PayslipStatus   @default(DRAFT)
+
+  /// The attendance and leave figures the rules were computed against, kept so
+  /// a payslip explains itself without re-reading the records behind it.
+  workedDays    Decimal @default(0) @db.Decimal(6, 2)
+  totalDays     Decimal @default(0) @db.Decimal(6, 2)
+  unpaidDays    Decimal @default(0) @db.Decimal(6, 2)
+  leaveDays     Decimal @default(0) @db.Decimal(6, 2)
+  overtimeHours Decimal @default(0) @db.Decimal(6, 2)
+
+  basic Decimal @default(0) @db.Decimal(12, 2)
+  gross Decimal @default(0) @db.Decimal(12, 2)
+  net   Decimal @default(0) @db.Decimal(12, 2)
+
+  /// Problems a person has to look at, such as a missing bank account or a
+  /// duplicate payslip. Stored so the payrun can list them without recomputing.
+  warnings   String[]
+  computedAt DateTime?
+  sentAt     DateTime?
+
+  lines PayslipLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId, periodStart])
+  @@index([payrunId])
+  @@index([status])
+}
+
+/// One computed rule on a payslip, kept so the calculation can be read back.
+model PayslipLine {
+  id        Int          @id @default(autoincrement())
+  payslipId Int
+  payslip   Payslip      @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+  code      String
+  name      String
+  category  RuleCategory
+  sequence  Int
+  quantity  Decimal      @default(1) @db.Decimal(8, 2)
+  amount    Decimal      @db.Decimal(12, 2)
+
+  @@index([payslipId, sequence])
+}
