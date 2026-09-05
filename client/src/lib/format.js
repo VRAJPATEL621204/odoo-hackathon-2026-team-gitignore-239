@@ -88,15 +88,17 @@ export function titleCase(value) {
 }
 
 /**
- * Hours as the attendance widget writes them: "6h56", not "6.93".
+ * Hours as the attendance widget writes them: "6h 56m", not "6.93".
  *
  * Attendance is read as a duration people compare against their working day,
- * and hours and minutes are how that is read at a glance.
+ * and hours and minutes are how that is read at a glance. The unit on each
+ * part (rather than "6h56") is what keeps it reading as a duration instead of
+ * a clock time.
  */
 export function formatDuration(hours) {
-  if (hours === null || hours === undefined) return '0h00';
+  if (hours === null || hours === undefined) return '0h 00m';
   const totalMinutes = Math.max(0, Math.round(Number(hours) * 60));
-  return `${Math.floor(totalMinutes / 60)}h${String(totalMinutes % 60).padStart(2, '0')}`;
+  return `${Math.floor(totalMinutes / 60)}h ${String(totalMinutes % 60).padStart(2, '0')}m`;
 }
 
 /**

@@ -38,6 +38,9 @@ export default function AiChatbotWidget({
   const [isModalOpen, setIsModalOpen] = useState(defaultOpen);
   const [isMaximized, setIsMaximized] = useState(false);
   const [showSessionsDrawer, setShowSessionsDrawer] = useState(false);
+  // Minimized to a small edge tab when the "Ask AI" pill is in the way of
+  // page content; clicking the tab restores the pill without opening the chat.
+  const [isMinimized, setIsMinimized] = useState(false);
 
   // Position state (moveable)
   const [modalPos, setModalPos] = useState({ x: 0, y: 0 });
@@ -289,15 +292,39 @@ export default function AiChatbotWidget({
   return (
     <>
       {/* ── Material 3 Floating Action Button (when modal is closed) ── */}
-      {!isModalOpen && (
+      {!isModalOpen && isMinimized && (
         <button
-          className="md-fab"
-          onClick={() => setIsModalOpen(true)}
-          title="Open PeoplePay360 AI Assistant"
-          aria-label="Open AI Assistant"
+          className="md-fab-bubble"
+          onClick={() => setIsMinimized(false)}
+          title="Show AI Assistant"
+          aria-label="Show AI Assistant"
         >
-          <span className="md-fab-text">Ask AI</span>
+          <span className="md-fab-bubble-mark" aria-hidden="true" />
         </button>
+      )}
+
+      {!isModalOpen && !isMinimized && (
+        <div className="md-fab-dock">
+          <button
+            className="md-fab"
+            onClick={() => setIsModalOpen(true)}
+            title="Open PeoplePay360 AI Assistant"
+            aria-label="Open AI Assistant"
+          >
+            <span className="md-fab-text">Ask AI</span>
+          </button>
+          <button
+            className="md-fab-close"
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsMinimized(true);
+            }}
+            title="Minimize"
+            aria-label="Minimize AI Assistant button"
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       {/* ── Moveable Modal Window ── */}

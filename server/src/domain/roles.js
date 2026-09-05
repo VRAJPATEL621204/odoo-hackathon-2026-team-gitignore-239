@@ -42,13 +42,13 @@ export const ROLE_DEFINITIONS = [
   {
     value: 'ADMIN',
     label: 'Admin',
-    description: 'Full access, including creating users and assigning roles.',
+    description: 'Full access, including user management.',
     permissions: Object.values(P),
   },
   {
     value: 'HR_MANAGER',
     label: 'HR Manager',
-    description: 'Employee records, attendance and the time off policy.',
+    description: 'Employee records, attendance and time off.',
     permissions: [
       P.EMPLOYEES_READ,
       P.EMPLOYEES_WRITE,
@@ -64,7 +64,7 @@ export const ROLE_DEFINITIONS = [
   {
     value: 'PAYROLL_ADMIN',
     label: 'Payroll Admin',
-    description: 'Runs payroll and configures salary structures and rules.',
+    description: 'Runs payroll and configures salary rules.',
     permissions: [
       P.EMPLOYEES_READ,
       P.ATTENDANCE_READ,
@@ -79,13 +79,13 @@ export const ROLE_DEFINITIONS = [
   {
     value: 'PAYROLL_USER',
     label: 'Payroll User',
-    description: 'Reads payruns, payslips and the payroll dashboard.',
+    description: 'Read-only payroll, payslips and dashboard.',
     permissions: [P.EMPLOYEES_READ, P.PAYROLL_READ, P.DASHBOARD_READ, P.SELF_SERVICE],
   },
   {
     value: 'TIMEOFF_ADMIN',
     label: 'Time Off Admin',
-    description: 'Approves leave and maintains time off types and allocations.',
+    description: 'Approves leave and manages time off setup.',
     permissions: [
       P.EMPLOYEES_READ,
       P.TIMEOFF_READ,
@@ -97,13 +97,13 @@ export const ROLE_DEFINITIONS = [
   {
     value: 'TIMEOFF_USER',
     label: 'Time Off User',
-    description: 'Reads time off records without approving them.',
+    description: 'Read-only access to time off records.',
     permissions: [P.EMPLOYEES_READ, P.TIMEOFF_READ, P.SELF_SERVICE],
   },
   {
     value: 'EMPLOYEE',
     label: 'Employee',
-    description: 'Self service only: own attendance, leave and payslips.',
+    description: 'Self-service: own attendance, leave, payslips.',
     permissions: [P.SELF_SERVICE],
   },
 ];

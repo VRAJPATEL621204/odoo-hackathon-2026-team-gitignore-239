@@ -7,7 +7,7 @@ import { useToast } from '../components/ToastProvider.jsx';
 import { PageHeader } from '../components/PageHeader.jsx';
 import { Button } from '../components/Button.jsx';
 import { DataTable, Pagination } from '../components/DataTable.jsx';
-import { Checkbox, SelectInput, TextInput } from '../components/Field.jsx';
+import { SelectInput, TextInput } from '../components/Field.jsx';
 import { Notice, StatusBadge } from '../components/Feedback.jsx';
 import { validateEmail, validatePassword } from '../lib/validators.js';
 
@@ -334,16 +334,36 @@ export function UserManagement() {
             <span className="field__label">
               Roles<span aria-hidden="true"> *</span>
             </span>
-            <div className="stack stack--tight">
-              {roleOptions.map((role) => (
-                <Checkbox
-                  key={role.value}
-                  label={`${role.label} — ${role.description}`}
-                  checked={form.roles.includes(role.value)}
-                  disabled={editingSelf}
-                  onChange={() => toggleRole(role.value)}
-                />
-              ))}
+            {/* Cards rather than the round checkbox used elsewhere: the round
+                style reads as a radio (pick one), but a user can hold several
+                roles at once, and a squared box plus a bordered card make that
+                multi-select clearer while also giving each description its
+                own contained block instead of one long wrapping list. */}
+            <div className="role-picker">
+              {roleOptions.map((role) => {
+                const checked = form.roles.includes(role.value);
+                return (
+                  <label
+                    key={role.value}
+                    className={`role-card${checked ? ' role-card--checked' : ''}${
+                      editingSelf ? ' role-card--disabled' : ''
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="role-card__input"
+                      checked={checked}
+                      disabled={editingSelf}
+                      onChange={() => toggleRole(role.value)}
+                    />
+                    <span className="role-card__box" aria-hidden="true" />
+                    <span className="role-card__body">
+                      <span className="role-card__label">{role.label}</span>
+                      <span className="role-card__desc">{role.description}</span>
+                    </span>
+                  </label>
+                );
+              })}
             </div>
             {fieldErrors.roles && <span className="field__error">{fieldErrors.roles}</span>}
           </div>

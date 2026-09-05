@@ -6,7 +6,7 @@ import { useResource } from '../hooks/useResource.js';
 import { useOptions, toSelectOptions } from '../hooks/useOptions.js';
 import { useStructures } from '../hooks/usePayrollOptions.js';
 import { PageHeader } from '../components/PageHeader.jsx';
-import { ErrorState, Notice, StatusBadge } from '../components/Feedback.jsx';
+import { EmptyState, ErrorState, Notice, StatusBadge } from '../components/Feedback.jsx';
 import { formatDuration, formatMoney } from '../lib/format.js';
 
 /**
@@ -51,7 +51,7 @@ function BarChart({ rows, format = (value) => value, empty }) {
   return (
     <div className="bars">
       {rows.map((row) => (
-        <div className="bars__row" key={row.label}>
+        <div className="bars__row" key={row.label} title={`${row.label}: ${format(row.amount)}`}>
           <span className="bars__label">{row.label}</span>
           <span className="bars__track">
             <span className="bars__fill" style={{ width: `${(row.amount / max) * 100}%` }} />
@@ -67,11 +67,16 @@ function BarChart({ rows, format = (value) => value, empty }) {
  * The trend as an SVG polyline.
  *
  * Drawn against a fixed viewBox and scaled by CSS, so it stays sharp at any
- * width without measuring the container.
+ * width without measuring the container. Faint horizontal guides and a max-
+ * value label give it an axis to read the line against without the clutter
+ * of a full grid.
  */
-function TrendChart({ points }) {
+function TrendChart({ points, empty }) {
   const width = 320;
   const height = 110;
+  const hasData = points.some((point) => point.amount > 0);
+  if (!hasData) return <p className="muted">{empty}</p>;
+
   const max = Math.max(...points.map((point) => point.amount), 1);
 
   const coordinates = points.map((point, index) => {
@@ -82,14 +87,23 @@ function TrendChart({ points }) {
 
   const line = coordinates.map((point) => `${point.x},${point.y}`).join(' ');
   const area = `0,${height} ${line} ${width},${height}`;
+  const gridLines = [0.25, 0.5, 0.75].map((fraction) => height - fraction * (height - 16) - 8);
 
   return (
     <div className="stack stack--tight">
       <svg className="trend" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Net salary trend">
+        {gridLines.map((y) => (
+          <line key={y} className="trend__grid-line" x1="0" y1={y} x2={width} y2={y} />
+        ))}
+        <text className="trend__axis-label" x="2" y="10">
+          {formatMoney(max)}
+        </text>
         <polygon points={area} fill="var(--color-info-bg)" />
         <polyline points={line} fill="none" stroke="var(--color-primary)" strokeWidth="2" />
         {coordinates.map((point) => (
-          <circle key={point.label} cx={point.x} cy={point.y} r="3" fill="var(--color-primary)" />
+          <circle key={point.label} cx={point.x} cy={point.y} r="3" fill="var(--color-primary)">
+            <title>{`${point.label}: ${formatMoney(point.amount)}`}</title>
+          </circle>
         ))}
       </svg>
       <div className="trend__labels">
@@ -112,7 +126,15 @@ function StatusSplit({ counts }) {
   ];
   const total = segments.reduce((sum, segment) => sum + segment.value, 0);
 
-  if (total === 0) return <p className="muted">No payslips in this period yet.</p>;
+  if (total === 0) {
+    return (
+      <EmptyState
+        title="No payslips generated"
+        description="No payroll has been processed for this period."
+        action={<Link to="/payroll/payruns">Create a payrun</Link>}
+      />
+    );
+  }
 
   return (
     <div className="stack stack--tight">
@@ -142,6 +164,44 @@ function StatusSplit({ counts }) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Text glyph per severity, so an alert reads as a status even before the message. */
+const ALERT_ICON = { danger: '!', warning: '!', success: '✓', info: 'i' };
+
+/**
+ * One payroll alert: a severity dot, the server's own message, wrapped rather
+ * than stretched across a full-width bar.
+ *
+ * When it links somewhere, the whole row is the click target rather than just
+ * the message text — a bigger, more discoverable target than an inline link,
+ * with a trailing chevron so it reads as navigable before it's even hovered.
+ */
+function AlertRow({ alert }) {
+  const icon = (
+    <span className="alert__icon" aria-hidden="true">
+      {ALERT_ICON[alert.tone] ?? ALERT_ICON.info}
+    </span>
+  );
+
+  if (!alert.to) {
+    return (
+      <div className={`alert alert--${alert.tone}`}>
+        {icon}
+        <span className="alert__text">{alert.text}</span>
+      </div>
+    );
+  }
+
+  return (
+    <Link to={alert.to} className={`alert alert--${alert.tone} alert--clickable`}>
+      {icon}
+      <span className="alert__text">{alert.text}</span>
+      <span className="alert__chevron" aria-hidden="true">
+        ›
+      </span>
+    </Link>
   );
 }
 
@@ -266,7 +326,7 @@ export function Dashboard() {
             />
           </div>
 
-          <div className="dash-grid">
+          <div className="dash-row dash-row--2">
             <div className="card stack">
               <h2>Salary cost by department</h2>
               <BarChart
@@ -279,30 +339,35 @@ export function Dashboard() {
               />
               <p className="muted">
                 {data.headline.payslipCount > 0
-                  ? 'From the payslips in this period.'
+                  ? 'Net salary from the payslips in this period.'
                   : 'No payroll yet for this period, so this shows the running contract wages.'}
               </p>
             </div>
 
             <div className="card stack">
               <h2>Monthly net salary trend</h2>
-              <TrendChart points={data.trend} />
+              <TrendChart points={data.trend} empty="Not enough payroll history yet for a trend." />
               <p className="muted">Net paid over the six months ending with this period.</p>
+            </div>
+          </div>
+
+          <div className="dash-row dash-row--2">
+            <div className="card stack">
+              <h2>Payslip status</h2>
+              <StatusSplit counts={data.payslipStatus} />
             </div>
 
             <div className="card stack">
-              <h2>Payslip status and alerts</h2>
-              <StatusSplit counts={data.payslipStatus} />
-
+              <h2>Payroll alerts</h2>
               <div className="stack stack--tight">
                 {data.alerts.map((alert) => (
-                  <div key={alert.text} className={`alert alert--${alert.tone}`}>
-                    {alert.to ? <Link to={alert.to}>{alert.text}</Link> : alert.text}
-                  </div>
+                  <AlertRow key={alert.text} alert={alert} />
                 ))}
               </div>
             </div>
+          </div>
 
+          <div className="dash-row dash-row--3">
             <div className="card stack">
               <h2>Attendance overview</h2>
               <BarChart
@@ -336,13 +401,13 @@ export function Dashboard() {
             <div className="card stack">
               <h2>Time off overview</h2>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table--compact">
                   <thead>
                     <tr>
                       <th>Type</th>
                       <th className="table__cell--numeric">Approved</th>
                       <th className="table__cell--numeric">Pending</th>
-                      <th className="table__cell--numeric">Remaining balance</th>
+                      <th className="table__cell--numeric">Balance</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -375,12 +440,12 @@ export function Dashboard() {
             <div className="card stack">
               <h2>Department overview</h2>
               <div className="table-wrap">
-                <table className="table">
+                <table className="table table--compact">
                   <thead>
                     <tr>
                       <th>Department</th>
                       <th className="table__cell--numeric">Headcount</th>
-                      <th className="table__cell--numeric">Monthly contract cost</th>
+                      <th className="table__cell--numeric">Monthly cost</th>
                     </tr>
                   </thead>
                   <tbody>
