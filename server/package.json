@@ -1,7 +1,7 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "PeoplePay360 HR & Payroll API \u2014 Express + Prisma + PostgreSQL",
+  "description": "PeoplePay360 HR & Payroll API — Express + Prisma + PostgreSQL",
   "type": "module",
   "main": "src/index.js",
   "scripts": {
@@ -23,6 +23,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "google-auth-library": "^9.15.1",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^6.10.1",
     "pdfkit": "^0.15.2"

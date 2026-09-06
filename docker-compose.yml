@@ -63,6 +63,11 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       GEMINI_TIMEOUT_MS: ${GEMINI_TIMEOUT_MS:-15000}
       PEOPLEPAY360_API_BASE_URL: http://localhost:5000
+      # Google sign-in — optional. Empty disables the feature; the login page
+      # hides the button and email/password login is unaffected.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-}
     ports:
       - "5173:5000"
       - "5000:5000"

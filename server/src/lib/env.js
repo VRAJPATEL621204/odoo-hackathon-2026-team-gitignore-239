@@ -57,13 +57,29 @@ if (jwtSecret && jwtSecret.length < 32) {
   errors.push(`JWT_SECRET must be at least 32 characters, received ${jwtSecret.length}`);
 }
 
+const clientOrigin = optional('CLIENT_ORIGIN', 'http://localhost:5173');
+
+// Google sign-in is optional, not required: both are read with `optional()`
+// rather than `required()` so a deployment that never configures Google
+// still boots and the existing email/password login is unaffected. The
+// callback defaults to this same origin's /api route, which is correct
+// whenever the browser reaches the API through the client's own origin (the
+// Vite proxy in development, or the single served origin in production) —
+// only a deployment where the API is on a different host needs to override it.
+const googleClientId = optional('GOOGLE_CLIENT_ID', '');
+const googleClientSecret = optional('GOOGLE_CLIENT_SECRET', '');
+const googleCallbackUrl = optional('GOOGLE_CALLBACK_URL', `${clientOrigin}/api/auth/google/callback`);
+
 export const env = {
   nodeEnv: optional('NODE_ENV', 'development'),
   port: integer('PORT', 5000),
   databaseUrl,
   jwtSecret,
   jwtExpiresInSeconds: integer('JWT_EXPIRES_IN_SECONDS', 8 * 60 * 60),
-  clientOrigin: optional('CLIENT_ORIGIN', 'http://localhost:5173'),
+  clientOrigin,
+  googleClientId,
+  googleClientSecret,
+  googleCallbackUrl,
   trustProxyHops: nonNegativeInteger('TRUST_PROXY_HOPS', 0),
   // Login is the only broadly rate-limited route, on three independent keys:
   // source IP (blunt cap on distributed brute force), account email (locks
@@ -113,6 +129,11 @@ export const env = {
 };
 
 export const isProduction = env.nodeEnv === 'production';
+
+/** Whether "Sign in with Google" is configured. Both values are required
+ * together — a client id with no secret (or vice versa) cannot complete the
+ * OAuth exchange, so the feature stays off rather than failing at request time. */
+export const googleAuthEnabled = Boolean(env.googleClientId && env.googleClientSecret);
 
 if (errors.length > 0) {
   console.error('Invalid environment configuration:');

@@ -888,6 +888,48 @@ a:hover {
   width: 100%;
 }
 
+/* Google sign-in: kept a sibling of the form, not part of it, since it's an
+   alternate way in rather than a form field. Margin only appears once there
+   is something to separate from the form below (:empty covers the case where
+   Google isn't configured and there's no error to show). */
+.auth-card__intro:not(:empty) {
+  margin-bottom: var(--space-5);
+}
+
+/* Google's own brand guidelines call for a neutral white button with their
+   real four-colour mark, not the app's purple — recoloring the mark or the
+   button would violate those guidelines. */
+.button--google {
+  width: 100%;
+  background: #ffffff;
+  border-color: #dadce0;
+  color: #3c4043;
+}
+.button--google:hover:not(:disabled) {
+  background: #f7f8f8;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+}
+.button--google:active:not(:disabled) {
+  background: #f1f3f4;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
 /* The user menu hangs off the right edge, so its panel is right-aligned to
    stay inside the viewport. */
 .nav-menu--right .nav-menu__items {
