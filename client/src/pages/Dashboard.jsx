@@ -6,8 +6,8 @@ import { useResource } from '../hooks/useResource.js';
 import { useOptions, toSelectOptions } from '../hooks/useOptions.js';
 import { useStructures } from '../hooks/usePayrollOptions.js';
 import { PageHeader } from '../components/PageHeader.jsx';
-import { ErrorState, Notice, StatusBadge } from '../components/Feedback.jsx';
-import { formatDuration, formatMoney } from '../lib/format.js';
+import { EmptyState, ErrorState, Notice } from '../components/Feedback.jsx';
+import { formatDuration, formatMoney, formatMoneyShort } from '../lib/format.js';
 
 /**
  * The payroll dashboard.
@@ -18,8 +18,37 @@ import { formatDuration, formatMoney } from '../lib/format.js';
  * every block on the page always describes the same set of people.
  *
  * The charts are inline SVG and CSS. A charting library would be more code
- * shipped to the browser than the four shapes on this page are worth.
+ * shipped to the browser than the handful of shapes on this page are worth.
+ *
+ * The layout follows the dashboard mock: a KPI strip, then a three-card row of
+ * charts (salary by department, the trend, payslip status and alerts together),
+ * then a three-card row of the attendance, time off and department breakdowns.
  */
+
+/** A card heading with the "where this came from" line the mock puts under it. */
+function CardHeader({ title, source }) {
+  return (
+    <header className="card__header">
+      <h2>{title}</h2>
+      {source && <p className="card__source">Source: {source}</p>}
+    </header>
+  );
+}
+
+/**
+ * "+8.5% vs last month" from the trend series.
+ *
+ * Both months are read from the same series so the ratio is internally
+ * consistent; null when there is no prior month with any payroll to divide by.
+ */
+function monthOverMonth(trend) {
+  if (!trend || trend.length < 2) return null;
+  const current = trend[trend.length - 1].amount;
+  const previous = trend[trend.length - 2].amount;
+  if (!previous) return null;
+  const pct = Math.round(((current - previous) / previous) * 1000) / 10;
+  return `${pct >= 0 ? '+' : ''}${pct}% vs last month`;
+}
 
 /** The current month and the eleven before it, for the period picker. */
 function periodOptions() {
@@ -44,36 +73,61 @@ function Kpi({ label, value, hint, tone }) {
 }
 
 /**
- * Horizontal bars, which read better than columns for named categories.
- *
- * Capped to the top `limit` rows by value — a "cost by department" ranking is
- * naturally most useful ordered by size, and capping it is what keeps this
- * card the same rough height as its neighbours whether there are 6
- * departments or 60, instead of one card stretching the whole grid row.
+ * Horizontal bars — the right shape for a long list of named categories, where
+ * the label needs room to be read and the count of rows can run into double
+ * figures (a company can have a dozen departments).
  */
-function BarChart({ rows, format = (value) => value, empty, limit = 8 }) {
+function BarChart({ rows, format = (value) => value, empty }) {
   const max = Math.max(...rows.map((row) => row.amount), 0);
   if (rows.length === 0 || max === 0) return <p className="muted">{empty}</p>;
 
-  const visible = rows.slice(0, limit);
-  const hidden = rows.length - visible.length;
+  return (
+    <div className="bars is-filler">
+      {rows.map((row) => (
+        <div className="bars__row" key={row.label} title={`${row.label}: ${format(row.amount)}`}>
+          <span className="bars__label">{row.label}</span>
+          <span className="bars__track">
+            <span
+              className={`bars__fill${row.tone ? ` bars__fill--${row.tone}` : ''}`}
+              style={{ width: `${Math.max((row.amount / max) * 100, 2)}%` }}
+            />
+          </span>
+          <span className="bars__value">{format(row.amount)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Vertical columns — for a small, fixed set of categories (the four attendance
+ * buckets), drawn as columns to match the dashboard mock.
+ *
+ * A row may carry its own `tone` (so absences read red and overtime blue) and a
+ * `display` string, for when the bar's height and the number under it are on
+ * different scales — overtime is hours next to head-counts of days.
+ */
+function ColumnChart({ rows, format = (value) => value, empty }) {
+  const max = Math.max(...rows.map((row) => row.amount), 0);
+  if (rows.length === 0 || max === 0) return <p className="muted">{empty}</p>;
 
   return (
-    <div className="stack stack--tight">
-      <div className="bars">
-        {visible.map((row) => (
-          <div className="bars__row" key={row.label}>
-            <span className="bars__label" title={row.label}>
-              {row.label}
+    <div className="columns">
+      {rows.map((row) => {
+        const label = row.display ?? format(row.amount);
+        return (
+          <div className="columns__item" key={row.label} title={`${row.label}: ${label}`}>
+            <span className="columns__value">{label}</span>
+            <span className="columns__track">
+              <span
+                className={`columns__fill${row.tone ? ` columns__fill--${row.tone}` : ''}`}
+                style={{ height: `${Math.max((row.amount / max) * 100, 2)}%` }}
+              />
             </span>
-            <span className="bars__track">
-              <span className="bars__fill" style={{ width: `${(row.amount / max) * 100}%` }} />
-            </span>
-            <span className="bars__value">{format(row.amount)}</span>
+            <span className="columns__label">{row.label}</span>
           </div>
-        ))}
-      </div>
-      {hidden > 0 && <p className="muted">+{hidden} more, smaller than these.</p>}
+        );
+      })}
     </div>
   );
 }
@@ -82,11 +136,16 @@ function BarChart({ rows, format = (value) => value, empty, limit = 8 }) {
  * The trend as an SVG polyline.
  *
  * Drawn against a fixed viewBox and scaled by CSS, so it stays sharp at any
- * width without measuring the container.
+ * width without measuring the container. Faint horizontal guides and a max-
+ * value label give it an axis to read the line against without the clutter
+ * of a full grid.
  */
-function TrendChart({ points }) {
+function TrendChart({ points, empty }) {
   const width = 320;
   const height = 110;
+  const hasData = points.some((point) => point.amount > 0);
+  if (!hasData) return <p className="muted">{empty}</p>;
+
   const max = Math.max(...points.map((point) => point.amount), 1);
 
   const coordinates = points.map((point, index) => {
@@ -97,14 +156,23 @@ function TrendChart({ points }) {
 
   const line = coordinates.map((point) => `${point.x},${point.y}`).join(' ');
   const area = `0,${height} ${line} ${width},${height}`;
+  const gridLines = [0.25, 0.5, 0.75].map((fraction) => height - fraction * (height - 16) - 8);
 
   return (
-    <div className="stack stack--tight">
+    <div className="stack stack--tight is-filler">
       <svg className="trend" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Net salary trend">
+        {gridLines.map((y) => (
+          <line key={y} className="trend__grid-line" x1="0" y1={y} x2={width} y2={y} />
+        ))}
+        <text className="trend__axis-label" x="2" y="10">
+          {formatMoney(max)}
+        </text>
         <polygon points={area} fill="var(--color-info-bg)" />
         <polyline points={line} fill="none" stroke="var(--color-primary)" strokeWidth="2" />
         {coordinates.map((point) => (
-          <circle key={point.label} cx={point.x} cy={point.y} r="3" fill="var(--color-primary)" />
+          <circle key={point.label} cx={point.x} cy={point.y} r="3" fill="var(--color-primary)">
+            <title>{`${point.label}: ${formatMoney(point.amount)}`}</title>
+          </circle>
         ))}
       </svg>
       <div className="trend__labels">
@@ -118,45 +186,109 @@ function TrendChart({ points }) {
   );
 }
 
-/** The payslip status split as one stacked bar plus a legend. */
-function StatusSplit({ counts }) {
+/**
+ * Payslip status and the payroll alerts in one card, as the mock groups them.
+ *
+ * Left: the status split as a stacked bar with a legend beneath it. The bar's
+ * three segments are the real statuses; "Warning" is a legend entry only,
+ * because a payslip that carries a warning is also a draft or computed one and
+ * a fourth segment would double-count it.
+ *
+ * Right: the alerts, each linking to where it is resolved.
+ */
+function PayslipStatusAlerts({ counts, alerts }) {
   const segments = [
     { key: 'PAID', label: 'Paid', value: counts.PAID, tone: 'success' },
-    { key: 'DONE', label: 'Computed', value: counts.DONE, tone: 'info' },
-    { key: 'DRAFT', label: 'Draft', value: counts.DRAFT, tone: 'default' },
+    { key: 'DONE', label: 'Done', value: counts.DONE, tone: 'info' },
+    { key: 'DRAFT', label: 'Pending', value: counts.DRAFT, tone: 'warning' },
   ];
   const total = segments.reduce((sum, segment) => sum + segment.value, 0);
 
-  if (total === 0) return <p className="muted">No payslips in this period yet.</p>;
-
   return (
-    <div className="stack stack--tight">
-      <div className="split-bar">
-        {segments
-          .filter((segment) => segment.value > 0)
-          .map((segment) => (
-            <span
-              key={segment.key}
-              className={`split-bar__part split-bar__part--${segment.tone}`}
-              style={{ width: `${(segment.value / total) * 100}%` }}
-              title={`${segment.label}: ${segment.value}`}
-            />
-          ))}
-      </div>
-      <div className="row">
-        {segments.map((segment) => (
-          <span key={segment.key} className="legend">
-            <span className={`legend__dot legend__dot--${segment.tone}`} />
-            {segment.label} {segment.value}
-          </span>
-        ))}
-        {counts.WARNING > 0 && (
-          <span className="legend">
-            <StatusBadge tone="warning">{counts.WARNING} with warnings</StatusBadge>
-          </span>
+    <div className="status-alerts is-filler">
+      <div className="stack stack--tight">
+        <p className="card__source">Status split</p>
+        {total === 0 ? (
+          <EmptyState
+            title="No payslips generated"
+            description="No payroll has been processed for this period."
+            action={<Link to="/payroll/payruns">Create a payrun</Link>}
+          />
+        ) : (
+          <>
+            <div className="split-bar">
+              {segments
+                .filter((segment) => segment.value > 0)
+                .map((segment) => (
+                  <span
+                    key={segment.key}
+                    className={`split-bar__part split-bar__part--${segment.tone}`}
+                    style={{ width: `${(segment.value / total) * 100}%` }}
+                    title={`${segment.label}: ${segment.value}`}
+                  />
+                ))}
+            </div>
+            <div className="stack stack--tight">
+              {segments.map((segment) => (
+                <span key={segment.key} className="legend">
+                  <span className={`legend__dot legend__dot--${segment.tone}`} />
+                  {segment.label} {segment.value}
+                </span>
+              ))}
+              <span className="legend">
+                <span className="legend__dot legend__dot--danger" />
+                Warning {counts.WARNING}
+              </span>
+            </div>
+          </>
         )}
       </div>
+
+      <div className="stack stack--tight">
+        <p className="card__source">Current alerts</p>
+        {alerts.map((alert) => (
+          <AlertRow key={alert.text} alert={alert} />
+        ))}
+      </div>
     </div>
+  );
+}
+
+/** Text glyph per severity, so an alert reads as a status even before the message. */
+const ALERT_ICON = { danger: '!', warning: '!', success: '✓', info: 'i' };
+
+/**
+ * One payroll alert: a severity dot, the server's own message, wrapped rather
+ * than stretched across a full-width bar.
+ *
+ * When it links somewhere, the whole row is the click target rather than just
+ * the message text — a bigger, more discoverable target than an inline link,
+ * with a trailing chevron so it reads as navigable before it's even hovered.
+ */
+function AlertRow({ alert }) {
+  const icon = (
+    <span className="alert__icon" aria-hidden="true">
+      {ALERT_ICON[alert.tone] ?? ALERT_ICON.info}
+    </span>
+  );
+
+  if (!alert.to) {
+    return (
+      <div className={`alert alert--${alert.tone}`}>
+        {icon}
+        <span className="alert__text">{alert.text}</span>
+      </div>
+    );
+  }
+
+  return (
+    <Link to={alert.to} className={`alert alert--${alert.tone} alert--clickable`}>
+      {icon}
+      <span className="alert__text">{alert.text}</span>
+      <span className="alert__chevron" aria-hidden="true">
+        ›
+      </span>
+    </Link>
   );
 }
 
@@ -177,7 +309,13 @@ export function Dashboard() {
   if (error) return <ErrorState error={error} onRetry={refetch} />;
 
   const attendance = data?.attendance;
-  const health = data?.headline.attendanceHealth;
+  const headline = data?.headline;
+  const health = headline?.attendanceHealth;
+  const salaryDelta = data ? monthOverMonth(data.trend) : null;
+  const avgPerEmployee =
+    headline && headline.employeeCount > 0
+      ? headline.totalNetPaid / headline.employeeCount
+      : null;
 
   return (
     <div className="stack">
@@ -254,110 +392,120 @@ export function Dashboard() {
         <>
           <div className="kpi-row">
             <Kpi
-              label="Total net salary"
-              value={formatMoney(data.headline.totalNetPaid)}
-              hint={`${data.headline.paidCount} paid, ${data.headline.pendingCount} pending`}
+              label="Total net salary paid"
+              value={formatMoney(headline.totalNetPaid)}
+              hint={salaryDelta ?? `${headline.paidCount} paid, ${headline.pendingCount} pending`}
             />
             <Kpi
               label="Payslips generated"
-              value={data.headline.payslipCount}
-              hint={`Across ${data.headline.employeeCount} active employees`}
+              value={headline.payslipCount}
+              hint={`${headline.paidCount} paid, ${headline.pendingCount} pending`}
             />
             <Kpi
-              label="Average net / payslip"
-              value={formatMoney(data.headline.averageNet)}
-              hint="Based on this period's payroll"
+              label="Avg salary / employee"
+              value={avgPerEmployee === null ? '—' : formatMoney(avgPerEmployee)}
+              hint={`Across ${headline.employeeCount} active employees`}
             />
             <Kpi
-              label="Approved time off"
-              value={`${data.headline.approvedLeaveDays} days`}
-              hint="Approved leave overlapping this period"
+              label="Approved time off days"
+              value={`${headline.approvedLeaveDays} days`}
+              hint="Across the selected period"
             />
             <Kpi
               label="Attendance health"
               value={health === null ? '—' : `${health}%`}
               tone={health === null ? undefined : health >= 80 ? 'good' : 'warn'}
-              hint="Present and checked out, of all records"
+              hint="Present and reviewed, of all records"
             />
           </div>
 
-          <div className="dash-grid">
+          <div className="dash-row dash-row--3">
             <div className="card stack">
-              <h2>Salary cost by department</h2>
+              <CardHeader
+                title="Salary cost by department"
+                source="Payslips + Employee department"
+              />
               <BarChart
                 rows={data.salaryByDepartment.map((row) => ({
                   label: row.department,
                   amount: row.amount,
                 }))}
-                format={formatMoney}
+                format={formatMoneyShort}
                 empty="No payroll or contracts for this selection."
               />
               <p className="muted">
-                {data.headline.payslipCount > 0
-                  ? 'From the payslips in this period.'
+                {headline.payslipCount > 0
+                  ? 'Net salary from the payslips in this period.'
                   : 'No payroll yet for this period, so this shows the running contract wages.'}
               </p>
             </div>
 
             <div className="card stack">
-              <h2>Monthly net salary trend</h2>
-              <TrendChart points={data.trend} />
+              <CardHeader
+                title="Monthly net salary trend"
+                source="Historical payslips / payruns"
+              />
+              <TrendChart points={data.trend} empty="Not enough payroll history yet for a trend." />
               <p className="muted">Net paid over the six months ending with this period.</p>
             </div>
 
             <div className="card stack">
-              <h2>Payslip status and alerts</h2>
-              <StatusSplit counts={data.payslipStatus} />
-
-              <div className="stack stack--tight">
-                {data.alerts.map((alert) => (
-                  <div key={alert.text} className={`alert alert--${alert.tone}`}>
-                    {alert.to ? <Link to={alert.to}>{alert.text}</Link> : alert.text}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="card stack">
-              <h2>Attendance overview</h2>
-              <BarChart
-                rows={[
-                  { label: 'Present', amount: attendance.present },
-                  { label: 'Late', amount: attendance.late },
-                  { label: 'Absent', amount: attendance.absent },
-                ]}
-                empty="No attendance recorded in this period."
+              <CardHeader
+                title="Payslip status & payroll alerts"
+                source="Payrun + payslip validation"
               />
-              <div className="stack stack--tight">
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="muted">Overtime recorded</span>
-                  <strong>{formatDuration(attendance.overtimeHours)}</strong>
-                </div>
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="muted">Missing check-outs</span>
-                  <strong>{attendance.missingCheckOut}</strong>
-                </div>
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="muted">Manually corrected</span>
-                  <strong>{attendance.manualEdits}</strong>
-                </div>
-                <div className="row" style={{ justifyContent: 'space-between' }}>
-                  <span className="muted">Coverage of elapsed days</span>
-                  <strong>{attendance.coverage === null ? '—' : `${attendance.coverage}%`}</strong>
+              <PayslipStatusAlerts counts={data.payslipStatus} alerts={data.alerts} />
+            </div>
+          </div>
+
+          <div className="dash-row dash-row--3">
+            <div className="card stack">
+              <CardHeader title="Attendance overview" source="Attendance" />
+              <div className="stack is-filler">
+                <ColumnChart
+                  rows={[
+                    { label: 'Present', amount: attendance.present, tone: 'success' },
+                    { label: 'Late', amount: attendance.late, tone: 'warning' },
+                    { label: 'Absent', amount: attendance.absent, tone: 'danger' },
+                    {
+                      label: 'Overtime',
+                      amount: attendance.overtimeHours,
+                      tone: 'info',
+                      display: formatDuration(attendance.overtimeHours),
+                    },
+                  ]}
+                  empty="No attendance recorded in this period."
+                />
+                <div className="stack stack--tight">
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span className="muted">Missing check-outs</span>
+                    <strong>{attendance.missingCheckOut}</strong>
+                  </div>
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span className="muted">Manually corrected</span>
+                    <strong>{attendance.manualEdits}</strong>
+                  </div>
+                  <div className="row" style={{ justifyContent: 'space-between' }}>
+                    <span className="muted">Coverage of elapsed days</span>
+                    <strong>{attendance.coverage === null ? '—' : `${attendance.coverage}%`}</strong>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div className="card stack">
-              <h2>Time off overview</h2>
-              <div className="table-wrap table-wrap--dash">
-                <table className="table">
+              <CardHeader
+                title="Time off overview"
+                source="Time off requests + allocations"
+              />
+              <div className="table-wrap is-filler">
+                <table className="table table--compact">
                   <thead>
                     <tr>
                       <th>Type</th>
                       <th className="table__cell--numeric">Approved</th>
                       <th className="table__cell--numeric">Pending</th>
-                      <th className="table__cell--numeric">Remaining</th>
+                      <th className="table__cell--numeric">Balance</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -388,9 +536,12 @@ export function Dashboard() {
             </div>
 
             <div className="card stack">
-              <h2>Department overview</h2>
-              <div className="table-wrap table-wrap--dash">
-                <table className="table">
+              <CardHeader
+                title="Department overview"
+                source="Employee + contract + payslip totals"
+              />
+              <div className="table-wrap">
+                <table className="table table--compact">
                   <thead>
                     <tr>
                       <th>Department</th>

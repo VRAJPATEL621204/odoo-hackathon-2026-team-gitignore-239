@@ -63,3 +63,35 @@ export function clearSessionCookie(res) {
     path: '/',
   });
 }
+
+/**
+ * The Google OAuth state cookie.
+ *
+ * A random value is stored here before redirecting to Google and compared
+ * against the `state` query param Google echoes back on the callback — the
+ * standard CSRF protection for a redirect-based OAuth flow, so a forged
+ * callback request (missing or wrong state) is rejected before any token
+ * exchange happens. Scoped to the /api/auth/google path and a short 10-minute
+ * lifetime since it only needs to survive one round trip to Google and back.
+ */
+export const OAUTH_STATE_COOKIE = 'ppp_oauth_state';
+const OAUTH_STATE_PATH = '/api/auth/google';
+
+export function setOAuthStateCookie(res, value) {
+  res.cookie(OAUTH_STATE_COOKIE, value, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isProduction,
+    maxAge: 10 * 60 * 1000,
+    path: OAUTH_STATE_PATH,
+  });
+}
+
+export function clearOAuthStateCookie(res) {
+  res.clearCookie(OAUTH_STATE_COOKIE, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: isProduction,
+    path: OAUTH_STATE_PATH,
+  });
+}

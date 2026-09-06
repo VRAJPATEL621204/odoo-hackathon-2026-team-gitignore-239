@@ -749,8 +749,8 @@ async function main() {
     for (const person of PEOPLE) {
       const employeeId = employees.get(person.name);
       await prisma.user.upsert({
-        where: { employeeId },
-        update: { roles: person.roles, active: true, email: person.workEmail },
+        where: { email: person.workEmail },
+        update: { roles: person.roles, active: true, employeeId },
         create: { email: person.workEmail, passwordHash, roles: person.roles, employeeId },
       });
       created += 1;
@@ -760,8 +760,8 @@ async function main() {
       const employeeId = generatedIds[i];
       if (!employeeId) continue;
       await prisma.user.upsert({
-        where: { employeeId },
-        update: { roles: ['EMPLOYEE'], active: true, email: person.workEmail },
+        where: { email: person.workEmail },
+        update: { roles: ['EMPLOYEE'], active: true, employeeId },
         create: { email: person.workEmail, passwordHash, roles: ['EMPLOYEE'], employeeId },
       });
       created += 1;

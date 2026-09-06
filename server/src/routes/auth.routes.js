@@ -1,12 +1,20 @@
 import { Router } from 'express';
+import { randomBytes } from 'node:crypto';
 
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { validator } from '../lib/validate.js';
-import { env } from '../lib/env.js';
-import { clearSessionCookie, setSessionCookie } from '../lib/cookies.js';
+import { env, googleAuthEnabled } from '../lib/env.js';
+import {
+  clearOAuthStateCookie,
+  clearSessionCookie,
+  OAUTH_STATE_COOKIE,
+  setOAuthStateCookie,
+  setSessionCookie,
+} from '../lib/cookies.js';
 import { signSession } from '../lib/token.js';
 import { createRateLimiter, enforceLimit, rateLimit } from '../lib/rateLimit.js';
-import { authenticate, sessionPayload } from '../services/auth.service.js';
+import { authenticate, authenticateWithGoogle, sessionPayload } from '../services/auth.service.js';
+import { buildGoogleAuthUrl, verifyGoogleCode } from '../lib/googleAuth.js';
 import { requireAuth } from '../middleware/auth.js';
 import { ROLE_DEFINITIONS } from '../domain/roles.js';
 
@@ -77,6 +85,105 @@ authRouter.post('/auth/logout', (_req, res) => {
   clearSessionCookie(res);
   res.status(204).end();
 });
+
+/**
+ * Google sign-in.
+ *
+ * Unauthenticated and side-effect free, so the login page can call it on
+ * mount to decide whether to show the button at all — a misconfigured or
+ * disabled Google integration should be invisible to a user, not a dead
+ * button that fails when clicked.
+ */
+authRouter.get('/auth/google/status', (_req, res) => {
+  res.json({ enabled: googleAuthEnabled });
+});
+
+/** A safe place to send the browser back to the login screen with a reason. */
+function redirectToLoginWithError(res, code) {
+  const url = new URL('/login', env.clientOrigin);
+  url.searchParams.set('googleError', code);
+  res.redirect(url.toString());
+}
+
+authRouter.get(
+  '/auth/google',
+  rateLimit({
+    limiter: loginIpLimiter,
+    action: 'GOOGLE_LOGIN_IP',
+    message: 'Too many sign-in attempts from this network. Try again later.',
+  }),
+  (req, res) => {
+    if (!googleAuthEnabled) return redirectToLoginWithError(res, 'unavailable');
+
+    // One-time value bound to this browser via a short-lived cookie, and
+    // checked against what Google echoes back on the callback (see
+    // setOAuthStateCookie's own comment for why this defeats a forged
+    // callback request).
+    const state = randomBytes(24).toString('hex');
+    setOAuthStateCookie(res, state);
+    res.redirect(buildGoogleAuthUrl(state));
+  }
+);
+
+authRouter.get(
+  '/auth/google/callback',
+  rateLimit({
+    limiter: loginIpLimiter,
+    action: 'GOOGLE_CALLBACK_IP',
+    message: 'Too many sign-in attempts from this network. Try again later.',
+  }),
+  asyncHandler(async (req, res) => {
+    if (!googleAuthEnabled) return redirectToLoginWithError(res, 'unavailable');
+
+    const { code, state, error } = req.query;
+    const expectedState = req.cookies?.[OAUTH_STATE_COOKIE];
+    clearOAuthStateCookie(res);
+
+    // Google sends `error=access_denied` when the user cancels at the
+    // consent screen — a normal outcome, not a failure worth logging.
+    if (error) {
+      return redirectToLoginWithError(res, error === 'access_denied' ? 'cancelled' : 'failed');
+    }
+
+    if (
+      typeof code !== 'string' ||
+      typeof state !== 'string' ||
+      !expectedState ||
+      state !== expectedState
+    ) {
+      return redirectToLoginWithError(res, 'failed');
+    }
+
+    let claims;
+    try {
+      claims = await verifyGoogleCode(code);
+    } catch {
+      // Never log the code or token themselves — only that verification
+      // failed, which is all a reader of the logs needs to investigate.
+      console.error('[google-auth] token exchange or verification failed');
+      return redirectToLoginWithError(res, 'failed');
+    }
+
+    let user;
+    try {
+      user = await authenticateWithGoogle({
+        email: claims?.email,
+        emailVerified: claims?.email_verified === true,
+      });
+    } catch (authError) {
+      const code =
+        authError?.code === 'GOOGLE_ACCOUNT_NOT_FOUND'
+          ? 'unauthorized'
+          : authError?.code === 'ACCOUNT_INACTIVE'
+            ? 'inactive'
+            : 'failed';
+      return redirectToLoginWithError(res, code);
+    }
+
+    setSessionCookie(res, signSession(user.id), env.jwtExpiresInSeconds);
+    res.redirect(env.clientOrigin);
+  })
+);
 
 /**
  * The current session.
