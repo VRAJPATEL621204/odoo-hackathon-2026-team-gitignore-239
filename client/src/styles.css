@@ -121,6 +121,9 @@ a:hover {
 }
 
 .topbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   font-weight: 600;
   font-size: 15px;
   color: var(--color-text);
@@ -128,6 +131,12 @@ a:hover {
 }
 .topbar__brand:hover {
   text-decoration: none;
+}
+.topbar__brand-logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 /* No overflow property here on purpose. Setting overflow on one axis makes the
@@ -577,13 +586,24 @@ a:hover {
   font-variant-numeric: tabular-nums;
 }
 
-/* For a table living in a narrow dashboard column: cells wrap instead of
-   forcing the table wider than the card, which is what was pushing a
-   horizontal scrollbar into a card no wider than ~260px. */
+/* For a table living in a narrow dashboard column: a fixed layout keeps the
+   table exactly as wide as its card. The label column takes the slack and
+   wraps; the numeric columns hold a tight fixed width and never wrap, so no
+   horizontal scrollbar is forced into the card. */
+.table--compact {
+  table-layout: fixed;
+}
 .table--compact th,
 .table--compact td {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-2);
   white-space: normal;
+  font-size: 12px;
+}
+.table--compact .table__cell--numeric {
+  width: 4.75rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* --------------------------------------------------------------- statuses */
@@ -836,9 +856,17 @@ a:hover {
 }
 
 .auth-card__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-weight: 600;
   color: var(--color-primary);
   margin-bottom: var(--space-5);
+}
+.auth-card__brand-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
 }
 .auth-card__title {
   font-size: 22px;
@@ -1268,7 +1296,10 @@ a:hover {
 .dash-row {
   display: grid;
   gap: var(--space-4);
-  align-items: start;
+  /* Cards in a row share the height of the tallest, so the row reads as one
+     band rather than a ragged edge. Charts that don't fill that height centre
+     themselves (see .is-filler). */
+  align-items: stretch;
 }
 .dash-row--2 {
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1277,6 +1308,37 @@ a:hover {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
+/* Absorbs the slack in a stretched card: a chart shorter than its row-mates
+   sits centred in the leftover space instead of clinging to the top edge. */
+.is-filler {
+  margin-block: auto;
+}
+
+/* Card heading with the "Source: …" provenance line the dashboard mock puts
+   under each block title. Kept as one flow item so the card's stack gap sits
+   below the pair, not between the title and its source. */
+.card__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.card__source {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+/* Payslip status and alerts share one card: the status split on the left, the
+   alert list on the right, collapsing to a single column when the card is
+   narrow. */
+.status-alerts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+}
+
+/* Horizontal bars: label, track, value on one row. The list of departments can
+   run to a dozen entries, so the bar grows sideways and the label keeps its
+   width. */
 .bars {
   display: flex;
   flex-direction: column;
@@ -1284,12 +1346,13 @@ a:hover {
 }
 .bars__row {
   display: grid;
-  grid-template-columns: minmax(80px, 1fr) 3fr minmax(70px, auto);
+  grid-template-columns: minmax(72px, 116px) 1fr minmax(48px, auto);
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
 }
 .bars__label {
   color: var(--color-text-muted);
+  font-size: 12px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1297,7 +1360,7 @@ a:hover {
 .bars__track {
   background: var(--color-bg);
   border-radius: 999px;
-  height: 10px;
+  height: 8px;
   overflow: hidden;
 }
 .bars__fill {
@@ -1306,9 +1369,81 @@ a:hover {
   background: var(--color-primary);
   border-radius: 999px;
 }
+.bars__fill--success {
+  background: var(--color-success);
+}
+.bars__fill--warning {
+  background: var(--color-warning);
+}
+.bars__fill--danger {
+  background: var(--color-danger);
+}
 .bars__value {
   text-align: right;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+/* Vertical columns: the bars sit on a shared baseline and grow up to a fixed
+   track height, with the value above and the category label below. Only the
+   attendance block uses these — a small, fixed set of four. */
+.columns {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: var(--space-2);
+}
+.columns__item {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+.columns__value {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+.columns__track {
+  width: 100%;
+  max-width: 40px;
+  height: 88px;
+  display: flex;
+  align-items: flex-end;
+  background: var(--color-bg);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.columns__fill {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  background: var(--color-primary);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.columns__fill--success {
+  background: var(--color-success);
+}
+.columns__fill--warning {
+  background: var(--color-warning);
+}
+.columns__fill--danger {
+  background: var(--color-danger);
+}
+.columns__fill--info {
+  background: var(--color-primary);
+}
+.columns__label {
+  max-width: 100%;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .trend {
@@ -1344,6 +1479,12 @@ a:hover {
 .split-bar__part--info {
   background: var(--color-primary);
 }
+.split-bar__part--warning {
+  background: var(--color-warning);
+}
+.split-bar__part--danger {
+  background: var(--color-danger);
+}
 .split-bar__part--default {
   background: var(--color-border-strong);
 }
@@ -1364,6 +1505,12 @@ a:hover {
 }
 .legend__dot--info {
   background: var(--color-primary);
+}
+.legend__dot--warning {
+  background: var(--color-warning);
+}
+.legend__dot--danger {
+  background: var(--color-danger);
 }
 .legend__dot--default {
   background: var(--color-border-strong);

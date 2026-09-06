@@ -60,7 +60,16 @@ export function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-card__brand">HR Portal</div>
+        <div className="auth-card__brand">
+          <img
+            className="auth-card__brand-logo"
+            src="/brand-logo.png"
+            alt=""
+            width="28"
+            height="28"
+          />
+          PeoplePay360
+        </div>
 
         <h1 className="auth-card__title">Welcome back</h1>
         <p className="auth-card__subtitle">Sign in to continue to your workspace.</p>

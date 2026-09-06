@@ -168,6 +168,7 @@ export function AppLayout() {
     <div className="app-shell">
       <header className="topbar">
         <Link to="/dashboard" className="topbar__brand">
+          <img className="topbar__brand-logo" src="/brand-logo.png" alt="" width="26" height="26" />
           PeoplePay360
         </Link>
 
