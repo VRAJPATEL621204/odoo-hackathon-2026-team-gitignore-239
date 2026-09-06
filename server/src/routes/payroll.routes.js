@@ -6,7 +6,13 @@ import { validator } from '../lib/validate.js';
 import { parsePageParams, parseSearch } from '../lib/pagination.js';
 import { parseDateOnly } from '../lib/dates.js';
 import { conflict } from '../lib/errors.js';
-import { requireAuth, requirePermission } from '../middleware/auth.js';
+import {
+  requireAuth,
+  requirePermission,
+  requireAnyPermission,
+  selfScopeId,
+  assertInScope,
+} from '../middleware/auth.js';
 import { PERMISSIONS } from '../domain/roles.js';
 import { validateFormula } from '../domain/formula.js';
 import { payslipFilename, renderPayslipPdf } from '../lib/payslipPdf.js';
@@ -60,6 +66,19 @@ const pdfCooldown = createRateLimiter({ limit: 1, windowMs: env.pdfCooldownSecon
 const canRead = [requireAuth, requirePermission(PERMISSIONS.PAYROLL_READ)];
 const canProcess = [requireAuth, requirePermission(PERMISSIONS.PAYROLL_PROCESS)];
 const canConfigure = [requireAuth, requirePermission(PERMISSIONS.PAYROLL_CONFIGURE)];
+
+// Payslip reads are shared: a payroll processor or read-only payroll role with
+// PAYROLL_PROCESS sees every employee; a read-only Payroll User and a plain
+// self-service employee see only their own payslips (pinned by `payslipScope`).
+const canReadPayslip = [
+  requireAuth,
+  requireAnyPermission(PERMISSIONS.PAYROLL_READ, PERMISSIONS.SELF_SERVICE),
+];
+
+/** The employee id the payslip routes are pinned to, or undefined for a processor. */
+function payslipScope(req) {
+  return selfScopeId(req, PERMISSIONS.PAYROLL_PROCESS);
+}
 function userResourceKey(req, id) {
   return `${req.user.id}:${id}`;
 }
@@ -448,12 +467,13 @@ payrollRouter.get(
 
 payrollRouter.get(
   '/payroll/payslips',
-  canRead,
+  canReadPayslip,
   asyncHandler(async (req, res) => {
+    const scopeId = payslipScope(req);
     res.json(
       await listPayslips({
         search: parseSearch(req.query),
-        employeeId: Number(req.query.employeeId) || undefined,
+        employeeId: scopeId ?? (Number(req.query.employeeId) || undefined),
         payrunId: Number(req.query.payrunId) || undefined,
         status: ['DRAFT', 'DONE', 'PAID'].includes(req.query.status) ? req.query.status : undefined,
         from: parseDateOnly(req.query.from) ?? undefined,
@@ -466,9 +486,11 @@ payrollRouter.get(
 
 payrollRouter.get(
   '/payroll/payslips/:id',
-  canRead,
+  canReadPayslip,
   asyncHandler(async (req, res) => {
-    res.json(await getPayslip(readId(req.params.id)));
+    const payslip = await getPayslip(readId(req.params.id));
+    assertInScope(payslipScope(req), payslip.employee.id);
+    res.json(payslip);
   })
 );
 
@@ -530,7 +552,7 @@ payrollRouter.post(
 /** The payslip as a PDF, for printing or saving. */
 payrollRouter.get(
   '/payroll/payslips/:id/pdf',
-  canRead,
+  canReadPayslip,
   asyncHandler(async (req, res) => {
     const payslipId = readId(req.params.id);
     const key = userResourceKey(req, payslipId);
@@ -540,6 +562,7 @@ payrollRouter.get(
     let pdf;
     try {
       payslip = await getPayslip(payslipId);
+      assertInScope(payslipScope(req), payslip.employee.id);
       pdf = await renderLockedPdf(key, payslip);
     } catch (error) {
       pdfCooldown.reset(key);

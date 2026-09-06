@@ -28,10 +28,11 @@ export function RequireAuth({ children }) {
  * pasted or bookmarked URL, and it explains the refusal rather than
  * redirecting somewhere the user did not ask for.
  */
-export function RequirePermission({ permission, children }) {
-  const { can } = useAuth();
+export function RequirePermission({ permission, anyOf, children }) {
+  const { can, canAny } = useAuth();
 
-  if (!can(permission)) {
+  const allowed = anyOf ? canAny(...anyOf) : can(permission);
+  if (!allowed) {
     return (
       <div className="stack">
         <PageHeader title="Not available" />

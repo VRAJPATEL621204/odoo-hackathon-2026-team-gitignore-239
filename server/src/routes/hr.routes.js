@@ -6,7 +6,7 @@ import { validator } from '../lib/validate.js';
 import { parsePageParams, parseSearch } from '../lib/pagination.js';
 import { validationError } from '../lib/errors.js';
 import { env } from '../lib/env.js';
-import { requireAuth, requirePermission } from '../middleware/auth.js';
+import { requireAuth, requirePermission, requireAnyPermission } from '../middleware/auth.js';
 import { PERMISSIONS } from '../domain/roles.js';
 import { WEEKDAYS } from '../domain/schedule.js';
 import { validatePeriod } from '../domain/contract.js';
@@ -61,8 +61,26 @@ const canWrite = [requireAuth, requirePermission(PERMISSIONS.EMPLOYEES_WRITE)];
  */
 hrRouter.get(
   '/hr/options',
-  canRead,
-  asyncHandler(async (_req, res) => {
+  [requireAuth, requireAnyPermission(PERMISSIONS.EMPLOYEES_READ, PERMISSIONS.SELF_SERVICE)],
+  asyncHandler(async (req, res) => {
+    // A self-service user without directory access gets only what the forms
+    // they can reach need: the company name and their own row for the
+    // (locked) employee picker on the time-off request form.
+    if (!req.user.permissions.includes(PERMISSIONS.EMPLOYEES_READ)) {
+      const me = req.user.employee
+        ? [{ id: req.user.employee.id, name: req.user.employee.name }]
+        : [];
+      res.json({
+        departments: [],
+        jobPositions: [],
+        schedules: [],
+        employees: me,
+        weekdays: WEEKDAYS,
+        company: env.companyName,
+      });
+      return;
+    }
+
     const [departments, jobPositions, schedules, employees] = await Promise.all([
       departmentOptions(),
       jobPositionOptions(),

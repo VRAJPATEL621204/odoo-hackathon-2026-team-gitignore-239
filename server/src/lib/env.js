@@ -93,7 +93,7 @@ export const env = {
   rateLimitLoginAccountWindow: integer('RATE_LIMIT_LOGIN_ACCOUNT_WINDOW', 900),
   rateLimitLoginDeviceMax: integer('RATE_LIMIT_LOGIN_DEVICE_MAX', 8),
   rateLimitLoginDeviceWindow: integer('RATE_LIMIT_LOGIN_DEVICE_WINDOW', 60),
-  maxBulkEmailRecipients: integer('MAX_BULK_EMAIL_RECIPIENTS', 10),
+  maxBulkEmailRecipients: integer('MAX_BULK_EMAIL_RECIPIENTS', 500),
   // A sitewide backstop on every write (POST/PUT/PATCH/DELETE) across the
   // whole app — HR records, attendance punches, timeoff requests, user
   // management, payroll config — anything not already covered by a more

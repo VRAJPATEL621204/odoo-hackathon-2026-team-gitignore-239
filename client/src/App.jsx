@@ -46,6 +46,9 @@ const LANDING = [
   { permission: PERMISSIONS.TIMEOFF_READ, to: '/time-off/requests' },
   { permission: PERMISSIONS.ATTENDANCE_READ, to: '/attendance' },
   { permission: PERMISSIONS.USERS_MANAGE, to: '/users' },
+  // A self-service-only employee: their own attendance is the home screen,
+  // not the refusal page the module permissions above would fall through to.
+  { permission: PERMISSIONS.SELF_SERVICE, to: '/attendance' },
 ];
 
 function Landing() {
@@ -169,7 +172,7 @@ export default function App() {
             <Route
               path="/attendance"
               element={
-                <RequirePermission permission={PERMISSIONS.ATTENDANCE_READ}>
+                <RequirePermission anyOf={[PERMISSIONS.ATTENDANCE_READ, PERMISSIONS.SELF_SERVICE]}>
                   <Attendance />
                 </RequirePermission>
               }
@@ -177,7 +180,7 @@ export default function App() {
             <Route
               path="/attendance/:id"
               element={
-                <RequirePermission permission={PERMISSIONS.ATTENDANCE_READ}>
+                <RequirePermission anyOf={[PERMISSIONS.ATTENDANCE_READ, PERMISSIONS.SELF_SERVICE]}>
                   <AttendanceForm />
                 </RequirePermission>
               }
@@ -186,7 +189,7 @@ export default function App() {
             <Route
               path="/time-off/requests"
               element={
-                <RequirePermission permission={PERMISSIONS.TIMEOFF_READ}>
+                <RequirePermission anyOf={[PERMISSIONS.TIMEOFF_READ, PERMISSIONS.SELF_SERVICE]}>
                   <TimeOffRequests />
                 </RequirePermission>
               }
@@ -194,7 +197,7 @@ export default function App() {
             <Route
               path="/time-off/requests/:id"
               element={
-                <RequirePermission permission={PERMISSIONS.TIMEOFF_READ}>
+                <RequirePermission anyOf={[PERMISSIONS.TIMEOFF_READ, PERMISSIONS.SELF_SERVICE]}>
                   <TimeOffRequestForm />
                 </RequirePermission>
               }
@@ -202,7 +205,7 @@ export default function App() {
             <Route
               path="/time-off/allocations"
               element={
-                <RequirePermission permission={PERMISSIONS.TIMEOFF_READ}>
+                <RequirePermission anyOf={[PERMISSIONS.TIMEOFF_READ, PERMISSIONS.SELF_SERVICE]}>
                   <Allocations />
                 </RequirePermission>
               }
@@ -210,7 +213,7 @@ export default function App() {
             <Route
               path="/time-off/allocations/:id"
               element={
-                <RequirePermission permission={PERMISSIONS.TIMEOFF_READ}>
+                <RequirePermission anyOf={[PERMISSIONS.TIMEOFF_READ, PERMISSIONS.SELF_SERVICE]}>
                   <AllocationForm />
                 </RequirePermission>
               }
@@ -275,7 +278,7 @@ export default function App() {
             <Route
               path="/payroll/payslips"
               element={
-                <RequirePermission permission={PERMISSIONS.PAYROLL_READ}>
+                <RequirePermission anyOf={[PERMISSIONS.PAYROLL_READ, PERMISSIONS.SELF_SERVICE]}>
                   <Payslips />
                 </RequirePermission>
               }
@@ -283,7 +286,7 @@ export default function App() {
             <Route
               path="/payroll/payslips/:id"
               element={
-                <RequirePermission permission={PERMISSIONS.PAYROLL_READ}>
+                <RequirePermission anyOf={[PERMISSIONS.PAYROLL_READ, PERMISSIONS.SELF_SERVICE]}>
                   <PayslipForm />
                 </RequirePermission>
               }

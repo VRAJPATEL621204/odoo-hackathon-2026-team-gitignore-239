@@ -52,3 +52,44 @@ export function requirePermission(permission) {
     next();
   };
 }
+
+/**
+ * Guards a route that any one of several permissions may open.
+ *
+ * Used where one screen is shared between a manager view (the module read
+ * permission) and a self-service view (`self.service`). The data each caller
+ * sees is still narrowed by `selfScopeId` below — this only opens the door.
+ */
+export function requireAnyPermission(...permissions) {
+  return function anyPermissionGuard(req, _res, next) {
+    if (!req.user) return next(unauthorized());
+    if (permissions.some((permission) => req.user.permissions.includes(permission))) return next();
+    return next(forbidden(`Your roles grant none of: ${permissions.join(', ')}.`));
+  };
+}
+
+/**
+ * The employee id a list or record request must be confined to, or `undefined`
+ * for unrestricted access.
+ *
+ * A caller holding `elevatedPermission` (an approver, a payroll processor, an
+ * admin) sees every employee's records. Everyone else — a plain self-service
+ * employee, or a read-only role that is not an approver — is pinned to their
+ * own employee row regardless of any `employeeId` in the query string. A
+ * non-elevated caller with no linked employee is pinned to `-1`, which matches
+ * nothing, so a misconfigured account leaks no data.
+ */
+export function selfScopeId(req, elevatedPermission) {
+  if (req.user?.permissions.includes(elevatedPermission)) return undefined;
+  return req.user?.employeeId ?? -1;
+}
+
+/**
+ * Throws unless the caller may see records belonging to `employeeId`.
+ * `scopeId` is the value returned by `selfScopeId`.
+ */
+export function assertInScope(scopeId, employeeId) {
+  if (scopeId !== undefined && employeeId !== scopeId) {
+    throw forbidden('This record belongs to another employee.');
+  }
+}

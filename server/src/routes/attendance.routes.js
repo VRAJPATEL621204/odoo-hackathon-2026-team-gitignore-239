@@ -6,7 +6,13 @@ import { validator } from '../lib/validate.js';
 import { parsePageParams, parseSearch } from '../lib/pagination.js';
 import { parseDateOnly } from '../lib/dates.js';
 import { forbidden } from '../lib/errors.js';
-import { requireAuth, requirePermission } from '../middleware/auth.js';
+import {
+  requireAuth,
+  requirePermission,
+  requireAnyPermission,
+  selfScopeId,
+  assertInScope,
+} from '../middleware/auth.js';
 import { PERMISSIONS } from '../domain/roles.js';
 import {
   attendanceSummaryFor,
@@ -20,8 +26,19 @@ import {
 
 export const attendanceRouter = Router();
 
-const canRead = [requireAuth, requirePermission(PERMISSIONS.ATTENDANCE_READ)];
+// The list and record routes are shared: a caller with ATTENDANCE_READ sees
+// everyone, a self-service-only employee sees just their own rows (pinned by
+// `attendanceScope`).
+const canRead = [
+  requireAuth,
+  requireAnyPermission(PERMISSIONS.ATTENDANCE_READ, PERMISSIONS.SELF_SERVICE),
+];
 const canWrite = [requireAuth, requirePermission(PERMISSIONS.ATTENDANCE_WRITE)];
+
+/** The employee id the read routes are pinned to, or undefined for ATTENDANCE_READ. */
+function attendanceScope(req) {
+  return selfScopeId(req, PERMISSIONS.ATTENDANCE_READ);
+}
 
 /* --------------------------------------------------------- the widget's own */
 
@@ -67,7 +84,8 @@ attendanceRouter.get(
   '/attendance',
   canRead,
   asyncHandler(async (req, res) => {
-    const employeeId = Number(req.query.employeeId) || undefined;
+    const scopeId = attendanceScope(req);
+    const employeeId = scopeId ?? (Number(req.query.employeeId) || undefined);
     const status = ['PRESENT', 'LATE', 'ABSENT'].includes(req.query.status)
       ? req.query.status
       : undefined;
@@ -89,7 +107,9 @@ attendanceRouter.get(
   '/attendance/:id',
   canRead,
   asyncHandler(async (req, res) => {
-    res.json(await getAttendance(readId(req.params.id)));
+    const row = await getAttendance(readId(req.params.id));
+    assertInScope(attendanceScope(req), row.employee.id);
+    res.json(row);
   })
 );
 

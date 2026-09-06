@@ -17,6 +17,12 @@ import AiChatbotWidget from './ai/AiChatbotWidget.jsx';
  * permissions, so hiding an entry is a convenience, not the security boundary.
  */
 
+// An entry (and each of its items) names either a single `permission` or an
+// `anyOf` list. `anyOf` is what lets a self-service-only employee see the
+// Attendance, Time Off and Payslips entries — scoped to their own records by
+// the API — while the manager-only items stay hidden.
+const SELF_OR = (permission) => ({ anyOf: [permission, PERMISSIONS.SELF_SERVICE] });
+
 const NAV = [
   {
     key: 'employees',
@@ -30,31 +36,42 @@ const NAV = [
       { to: '/schedules', label: 'Working Schedules' },
     ],
   },
-  { key: 'attendance', to: '/attendance', label: 'Attendance', permission: PERMISSIONS.ATTENDANCE_READ },
+  {
+    key: 'attendance',
+    to: '/attendance',
+    label: 'Attendance',
+    ...SELF_OR(PERMISSIONS.ATTENDANCE_READ),
+  },
   {
     key: 'time-off',
     label: 'Time Off',
-    permission: PERMISSIONS.TIMEOFF_READ,
+    ...SELF_OR(PERMISSIONS.TIMEOFF_READ),
     items: [
-      { to: '/time-off/requests', label: 'Requests' },
-      { to: '/time-off/allocations', label: 'Allocations' },
-      { to: '/time-off/types', label: 'Time Off Types' },
+      { to: '/time-off/requests', label: 'Requests', ...SELF_OR(PERMISSIONS.TIMEOFF_READ) },
+      { to: '/time-off/allocations', label: 'Allocations', ...SELF_OR(PERMISSIONS.TIMEOFF_READ) },
+      { to: '/time-off/types', label: 'Time Off Types', permission: PERMISSIONS.TIMEOFF_READ },
     ],
   },
   {
     key: 'payroll',
     label: 'Payroll',
-    permission: PERMISSIONS.PAYROLL_READ,
+    ...SELF_OR(PERMISSIONS.PAYROLL_READ),
     items: [
-      { to: '/dashboard', label: 'Dashboard' },
-      { to: '/payroll/payruns', label: 'Payruns' },
-      { to: '/payroll/payslips', label: 'Payslips' },
-      { to: '/payroll/structures', label: 'Salary Structures' },
-      { to: '/payroll/rules', label: 'Salary Rules' },
+      { to: '/dashboard', label: 'Dashboard', permission: PERMISSIONS.DASHBOARD_READ },
+      { to: '/payroll/payruns', label: 'Payruns', permission: PERMISSIONS.PAYROLL_READ },
+      { to: '/payroll/payslips', label: 'Payslips', ...SELF_OR(PERMISSIONS.PAYROLL_READ) },
+      { to: '/payroll/structures', label: 'Salary Structures', permission: PERMISSIONS.PAYROLL_READ },
+      { to: '/payroll/rules', label: 'Salary Rules', permission: PERMISSIONS.PAYROLL_READ },
     ],
   },
   { key: 'users', to: '/users', label: 'Users', permission: PERMISSIONS.USERS_MANAGE },
 ];
+
+/** True when the user may see an entry that names a `permission` or an `anyOf`. */
+function entryAllowed({ can, canAny }, entry) {
+  if (entry.anyOf) return canAny(...entry.anyOf);
+  return can(entry.permission);
+}
 
 function navLinkClass({ isActive }) {
   return `nav-link${isActive ? ' is-active' : ''}`;
@@ -146,12 +163,20 @@ function initials(name) {
 }
 
 export function AppLayout() {
-  const { user, can, signOut } = useAuth();
+  const { user, can, canAny, signOut } = useAuth();
   const { openKey, toggle, close } = useMenuControl();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const visible = NAV.filter((entry) => can(entry.permission));
+  const auth = { can, canAny };
+  const visible = NAV.filter((entry) => entryAllowed(auth, entry))
+    // Drop the items a role may not open, then any group left with none.
+    .map((entry) =>
+      entry.items
+        ? { ...entry, items: entry.items.filter((item) => entryAllowed(auth, item)) }
+        : entry
+    )
+    .filter((entry) => !entry.items || entry.items.length > 0);
 
   async function onSignOut() {
     close();

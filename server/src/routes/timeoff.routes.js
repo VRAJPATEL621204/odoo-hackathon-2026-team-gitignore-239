@@ -5,7 +5,13 @@ import { readId } from '../lib/params.js';
 import { validator } from '../lib/validate.js';
 import { parsePageParams, parseSearch } from '../lib/pagination.js';
 import { forbidden } from '../lib/errors.js';
-import { requireAuth, requirePermission } from '../middleware/auth.js';
+import {
+  requireAuth,
+  requirePermission,
+  requireAnyPermission,
+  selfScopeId,
+  assertInScope,
+} from '../middleware/auth.js';
 import { PERMISSIONS } from '../domain/roles.js';
 import {
   balancesForEmployee,
@@ -28,9 +34,20 @@ import {
 
 export const timeOffRouter = Router();
 
-const canRead = [requireAuth, requirePermission(PERMISSIONS.TIMEOFF_READ)];
+// Read routes are shared: an approver sees every employee, a plain self-service
+// employee (and a read-only Time Off User) is confined to their own records by
+// `scopeId` below. TIMEOFF_APPROVE is the line between the two.
+const canRead = [
+  requireAuth,
+  requireAnyPermission(PERMISSIONS.TIMEOFF_READ, PERMISSIONS.SELF_SERVICE),
+];
 const canApprove = [requireAuth, requirePermission(PERMISSIONS.TIMEOFF_APPROVE)];
 const canConfigure = [requireAuth, requirePermission(PERMISSIONS.TIMEOFF_CONFIGURE)];
+
+/** The employee id these read routes are pinned to, or undefined for an approver. */
+function timeOffScope(req) {
+  return selfScopeId(req, PERMISSIONS.TIMEOFF_APPROVE);
+}
 
 const STATUSES = ['TO_APPROVE', 'APPROVED', 'REFUSED', 'CANCELLED'];
 
@@ -101,10 +118,11 @@ timeOffRouter.get(
   '/time-off/allocations',
   canRead,
   asyncHandler(async (req, res) => {
+    const scopeId = timeOffScope(req);
     res.json(
       await listAllocations({
         search: parseSearch(req.query),
-        employeeId: Number(req.query.employeeId) || undefined,
+        employeeId: scopeId ?? (Number(req.query.employeeId) || undefined),
         typeId: Number(req.query.typeId) || undefined,
         status: statusFilter(req.query),
         ...parsePageParams(req.query),
@@ -118,7 +136,9 @@ timeOffRouter.get(
   '/time-off/balances/:employeeId',
   canRead,
   asyncHandler(async (req, res) => {
-    res.json({ items: await balancesForEmployee(readId(req.params.employeeId)) });
+    const employeeId = readId(req.params.employeeId);
+    assertInScope(timeOffScope(req), employeeId);
+    res.json({ items: await balancesForEmployee(employeeId) });
   })
 );
 
@@ -126,7 +146,9 @@ timeOffRouter.get(
   '/time-off/allocations/:id',
   canRead,
   asyncHandler(async (req, res) => {
-    res.json(await getAllocation(readId(req.params.id)));
+    const row = await getAllocation(readId(req.params.id));
+    assertInScope(timeOffScope(req), row.employee.id);
+    res.json(row);
   })
 );
 
@@ -184,14 +206,18 @@ timeOffRouter.get(
   '/time-off/requests',
   canRead,
   asyncHandler(async (req, res) => {
+    const scopeId = timeOffScope(req);
+
     // "My Team" is resolved from the session rather than from a query
-    // parameter, so it cannot be pointed at somebody else's team.
-    const managerId = req.query.myTeam === 'true' ? req.user.employeeId : undefined;
+    // parameter, so it cannot be pointed at somebody else's team. A
+    // self-scoped caller has no team view, only their own requests.
+    const managerId =
+      scopeId === undefined && req.query.myTeam === 'true' ? req.user.employeeId : undefined;
 
     res.json(
       await listRequests({
         search: parseSearch(req.query),
-        employeeId: Number(req.query.employeeId) || undefined,
+        employeeId: scopeId ?? (Number(req.query.employeeId) || undefined),
         typeId: Number(req.query.typeId) || undefined,
         status: statusFilter(req.query),
         managerId,
@@ -205,7 +231,9 @@ timeOffRouter.get(
   '/time-off/requests/:id',
   canRead,
   asyncHandler(async (req, res) => {
-    res.json(await getRequest(readId(req.params.id)));
+    const row = await getRequest(readId(req.params.id));
+    assertInScope(timeOffScope(req), row.employee.id);
+    res.json(row);
   })
 );
 

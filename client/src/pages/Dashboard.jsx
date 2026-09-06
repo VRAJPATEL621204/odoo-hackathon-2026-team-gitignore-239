@@ -365,13 +365,13 @@ export function Dashboard() {
             hidden rather than shown empty. */}
         {structures.length > 0 && (
           <label className="row" style={{ gap: 'var(--space-2)' }}>
-            <span className="muted">Employee type</span>
+            <span className="muted">Salary structure</span>
             <select
               className="select"
               value={structureId}
               onChange={(event) => setStructureId(event.target.value)}
             >
-              <option value="">All types</option>
+              <option value="">All structures</option>
               {structures.map((structure) => (
                 <option key={structure.id} value={structure.id}>
                   {structure.name}

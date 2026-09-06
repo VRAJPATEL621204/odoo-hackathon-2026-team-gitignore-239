@@ -57,4 +57,9 @@ ENV PORT=5000 \
 # with no demo data beats a container that refuses to boot over it. seed.js
 # is itself resilient section-by-section (see prisma/seed.js), but the `||`
 # here is the last line of defence regardless of what goes wrong inside it.
-CMD ["sh", "-c", "npx prisma migrate deploy && if [ \"$SEED_DATABASE\" = \"true\" ]; then npm run seed || echo '[seed] failed — starting without demo data'; fi && (cd /app/ai-chatbot && PORT=4500 node server/index.js &) && npm start"]
+#
+# The banner echo right before `npm start` is deliberate: it's the one line
+# guaranteed to show up in `docker logs`/`docker compose up` regardless of how
+# either Node process logs its own readiness, naming the exact ports mapped in
+# docker-compose.yml so nobody has to go read this file to find them.
+CMD ["sh", "-c", "npx prisma migrate deploy && if [ \"$SEED_DATABASE\" = \"true\" ]; then npm run seed || echo '[seed] failed — starting without demo data'; fi && (cd /app/ai-chatbot && PORT=4500 node server/index.js &) && echo \"[app] PeoplePay360 API on port ${PORT:-5000} | AI chatbot on port ${CHATBOT_PORT:-4500}\" && npm start"]

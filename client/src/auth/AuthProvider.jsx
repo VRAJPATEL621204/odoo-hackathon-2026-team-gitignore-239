@@ -60,6 +60,9 @@ export function AuthProvider({ children }) {
       signOut,
       /** Permission strings come from the server, so this never re-derives roles. */
       can: (permission) => Boolean(user?.permissions?.includes(permission)),
+      /** True when the user holds at least one of the given permissions. */
+      canAny: (...permissions) =>
+        permissions.some((permission) => Boolean(user?.permissions?.includes(permission))),
     }),
     [user, checking, signIn, signOut]
   );
