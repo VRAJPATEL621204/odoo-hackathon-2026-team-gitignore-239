@@ -28,7 +28,7 @@ services:
     environment:
       PORT: 5000
       NODE_ENV: production
-      SEED_DATABASE: ${SEED_DATABASE:-false}
+      SEED_DATABASE: ${SEED_DATABASE:-true}
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-peoplepay360}?schema=public&connection_limit=10&pool_timeout=10
       JWT_SECRET: ${JWT_SECRET:-c8d37f81a5e42b6d910243e8c9f5a7b134d6e8f0a2b4c6e81012141618202224}
       JWT_EXPIRES_IN_SECONDS: 28800

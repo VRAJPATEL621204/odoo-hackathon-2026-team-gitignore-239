@@ -454,6 +454,14 @@ a:hover {
   width: 100%;
   min-width: 0;
 }
+/* Dashboard cards sit in a grid of equal-ish neighbours — a table with many
+ * rows (many departments, many time-off types) should scroll internally
+ * (the sticky header is already built for this) rather than stretch its card
+ * far past the others and break the grid's rhythm. */
+.table-wrap--dash {
+  max-height: 320px;
+  overflow-y: auto;
+}
 
 .table {
   width: 100%;
@@ -1170,7 +1178,7 @@ a:hover {
 }
 .bars__row {
   display: grid;
-  grid-template-columns: minmax(80px, 1fr) 3fr minmax(70px, auto);
+  grid-template-columns: minmax(110px, 1fr) 3fr minmax(70px, auto);
   align-items: center;
   gap: var(--space-3);
 }

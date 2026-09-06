@@ -43,22 +43,37 @@ function Kpi({ label, value, hint, tone }) {
   );
 }
 
-/** Horizontal bars, which read better than columns for named categories. */
-function BarChart({ rows, format = (value) => value, empty }) {
+/**
+ * Horizontal bars, which read better than columns for named categories.
+ *
+ * Capped to the top `limit` rows by value — a "cost by department" ranking is
+ * naturally most useful ordered by size, and capping it is what keeps this
+ * card the same rough height as its neighbours whether there are 6
+ * departments or 60, instead of one card stretching the whole grid row.
+ */
+function BarChart({ rows, format = (value) => value, empty, limit = 8 }) {
   const max = Math.max(...rows.map((row) => row.amount), 0);
   if (rows.length === 0 || max === 0) return <p className="muted">{empty}</p>;
 
+  const visible = rows.slice(0, limit);
+  const hidden = rows.length - visible.length;
+
   return (
-    <div className="bars">
-      {rows.map((row) => (
-        <div className="bars__row" key={row.label}>
-          <span className="bars__label">{row.label}</span>
-          <span className="bars__track">
-            <span className="bars__fill" style={{ width: `${(row.amount / max) * 100}%` }} />
-          </span>
-          <span className="bars__value">{format(row.amount)}</span>
-        </div>
-      ))}
+    <div className="stack stack--tight">
+      <div className="bars">
+        {visible.map((row) => (
+          <div className="bars__row" key={row.label}>
+            <span className="bars__label" title={row.label}>
+              {row.label}
+            </span>
+            <span className="bars__track">
+              <span className="bars__fill" style={{ width: `${(row.amount / max) * 100}%` }} />
+            </span>
+            <span className="bars__value">{format(row.amount)}</span>
+          </div>
+        ))}
+      </div>
+      {hidden > 0 && <p className="muted">+{hidden} more, smaller than these.</p>}
     </div>
   );
 }
@@ -335,14 +350,14 @@ export function Dashboard() {
 
             <div className="card stack">
               <h2>Time off overview</h2>
-              <div className="table-wrap">
+              <div className="table-wrap table-wrap--dash">
                 <table className="table">
                   <thead>
                     <tr>
                       <th>Type</th>
                       <th className="table__cell--numeric">Approved</th>
                       <th className="table__cell--numeric">Pending</th>
-                      <th className="table__cell--numeric">Remaining balance</th>
+                      <th className="table__cell--numeric">Remaining</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -374,13 +389,13 @@ export function Dashboard() {
 
             <div className="card stack">
               <h2>Department overview</h2>
-              <div className="table-wrap">
+              <div className="table-wrap table-wrap--dash">
                 <table className="table">
                   <thead>
                     <tr>
                       <th>Department</th>
                       <th className="table__cell--numeric">Headcount</th>
-                      <th className="table__cell--numeric">Monthly contract cost</th>
+                      <th className="table__cell--numeric">Monthly cost</th>
                     </tr>
                   </thead>
                   <tbody>

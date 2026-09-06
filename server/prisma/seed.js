@@ -61,9 +61,21 @@ const DEPARTMENTS = [
   'Operations',
   'Legal',
   'Customer Success',
+  'Product',
+  'Design',
+  'Data',
+  'Procurement',
+  'Facilities',
+  'Research',
 ];
 
-/** A few positions per department, each with a wage tier for generated pay. */
+/**
+ * A few hand-named positions per department (kept for the heroes, whose
+ * jobTitle fields reference these exact names), plus a much larger set
+ * generated below by crossing two role names per department with five
+ * seniority levels — the way a company of this size actually ends up with
+ * 150+ distinct job titles, rather than by inventing meaningless duplicates.
+ */
 const JOB_POSITIONS = [
   { name: 'Payroll Specialist', department: 'Finance', tier: 'mid' },
   { name: 'Payroll Manager', department: 'Finance', tier: 'lead' },
@@ -92,7 +104,46 @@ const JOB_POSITIONS = [
   { name: 'Customer Success Associate', department: 'Customer Success', tier: 'junior' },
 ];
 
-const WAGE_BY_TIER = { junior: 42000, mid: 60000, senior: 88000, lead: 115000 };
+/** Two base role names per department, each expanded into five seniority
+ * levels below. Kept distinct across departments (e.g. "IT Engineer" vs
+ * "Software Engineer") so the generated names never collide with each other
+ * — JobPosition.name is unique. */
+const DEPARTMENT_ROLE_PAIRS = {
+  Finance: ['Finance Analyst', 'Treasury Associate'],
+  HR: ['HR Partner', 'Talent Acquisition Specialist'],
+  Engineering: ['Software Engineer', 'Platform Engineer'],
+  Sales: ['Sales Representative', 'Business Development Associate'],
+  Support: ['Support Specialist', 'Technical Support Engineer'],
+  IT: ['IT Engineer', 'Infrastructure Engineer'],
+  Marketing: ['Marketing Specialist', 'Growth Marketer'],
+  Operations: ['Operations Coordinator', 'Supply Chain Analyst'],
+  Legal: ['Legal Analyst', 'Contracts Specialist'],
+  'Customer Success': ['CS Specialist', 'Account Manager'],
+  Product: ['Product Manager', 'Product Analyst'],
+  Design: ['Product Designer', 'Visual Designer'],
+  Data: ['Data Analyst', 'Data Engineer'],
+  Procurement: ['Procurement Officer', 'Sourcing Specialist'],
+  Facilities: ['Facilities Coordinator', 'Workplace Experience Associate'],
+  Research: ['Research Associate', 'Research Scientist'],
+};
+
+const LEVELS = [
+  { prefix: 'Junior', tier: 'junior' },
+  { prefix: 'Associate', tier: 'mid' },
+  { prefix: 'Senior', tier: 'senior' },
+  { prefix: 'Lead', tier: 'lead' },
+  { prefix: 'Principal', tier: 'principal' },
+];
+
+for (const [department, roles] of Object.entries(DEPARTMENT_ROLE_PAIRS)) {
+  for (const role of roles) {
+    for (const level of LEVELS) {
+      JOB_POSITIONS.push({ name: `${level.prefix} ${role}`, department, tier: level.tier });
+    }
+  }
+}
+
+const WAGE_BY_TIER = { junior: 42000, mid: 60000, senior: 88000, lead: 115000, principal: 145000 };
 
 const CITIES = ['Mumbai', 'Pune', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai'];
 
@@ -126,6 +177,34 @@ const SCHEDULES = [
       endMinutes: 14 * 60,
       breakMinutes: 0,
     })),
+  },
+  {
+    name: 'Night Shift',
+    timezone: 'Asia/Kolkata',
+    // Kept within one calendar day (up to 24:00) rather than wrapping past
+    // midnight — ScheduleDay's minutes-from-midnight model has no notion of a
+    // shift spanning two calendar days.
+    days: [0, 1, 2, 3, 4].map((dayOfWeek) => ({ dayOfWeek, startMinutes: 16 * 60, endMinutes: 24 * 60, breakMinutes: 60 })),
+  },
+  {
+    name: 'Rotational A (Mon-Fri early)',
+    timezone: 'Asia/Kolkata',
+    days: [0, 1, 2, 3, 4].map((dayOfWeek) => ({ dayOfWeek, startMinutes: 6 * 60, endMinutes: 14 * 60, breakMinutes: 30 })),
+  },
+  {
+    name: 'Rotational B (Tue-Sat)',
+    timezone: 'Asia/Kolkata',
+    days: [1, 2, 3, 4, 5].map((dayOfWeek) => ({ dayOfWeek, startMinutes: 9 * 60, endMinutes: 18 * 60, breakMinutes: 60 })),
+  },
+  {
+    name: 'Compressed 4-Day Week',
+    timezone: 'Asia/Kolkata',
+    days: [0, 1, 2, 3].map((dayOfWeek) => ({ dayOfWeek, startMinutes: 8 * 60, endMinutes: 19 * 60, breakMinutes: 60 })),
+  },
+  {
+    name: 'Remote Flexible',
+    timezone: 'Asia/Kolkata',
+    days: [0, 1, 2, 3, 4].map((dayOfWeek) => ({ dayOfWeek, startMinutes: 10 * 60, endMinutes: 18 * 60, breakMinutes: 60 })),
   },
 ];
 
@@ -176,6 +255,33 @@ const TIME_OFF_TYPES = [
     color: 'Purple',
     description: 'Granted as a one-time allocation for the event.',
   },
+  {
+    name: 'Bereavement Leave',
+    unit: 'DAYS',
+    requiresAllocation: false,
+    approvedBy: 'OFFICER',
+    workEntry: 'Leave Work Entry',
+    color: 'Grey',
+    description: 'Taken as needed, no allocation required.',
+  },
+  {
+    name: 'Jury Duty',
+    unit: 'DAYS',
+    requiresAllocation: false,
+    approvedBy: 'OFFICER',
+    workEntry: 'Leave Work Entry',
+    color: 'Blue',
+    description: 'Civic duty leave, taken as needed.',
+  },
+  {
+    name: 'Study Leave',
+    unit: 'DAYS',
+    requiresAllocation: true,
+    approvedBy: 'MANAGER',
+    workEntry: 'Leave Work Entry',
+    color: 'Green',
+    description: 'For exams and certifications, granted per request.',
+  },
 ];
 
 /**
@@ -219,6 +325,71 @@ const STRUCTURES = [
       { name: 'Contract Fee', code: 'BASIC', category: 'BASIC', sequence: 1, computation: 'PERCENTAGE', percentage: 100, percentageBase: 'CONTRACT_WAGE' },
       { name: 'Gross Salary', code: 'GROSS', category: 'GROSS', sequence: 60, computation: 'FORMULA', formula: "result = categories['BASIC'] + categories['ALLOWANCE']" },
       { name: 'Tax Deducted at Source', code: 'TDS', category: 'DEDUCTION', sequence: 90, computation: 'PERCENTAGE', percentage: 10, percentageBase: 'GROSS' },
+      { name: 'Net Salary', code: 'NET', category: 'NET', sequence: 110, computation: 'FORMULA', formula: "result = categories['GROSS'] + categories['DEDUCTION']" },
+    ],
+  },
+  // The five structures below round out the salary-structure catalogue with
+  // realistic variety (a large company runs several pay policies side by
+  // side) — they reuse the exact same tested BASIC/GROSS/NET formula strings
+  // as the structures above, just with different rule compositions, and are
+  // not wired into the seeded payruns themselves (those stay on Regular
+  // Salary, kept simple and proven). They exist so the structure/rule
+  // catalogue isn't artificially thin.
+  {
+    name: 'Manager Salary',
+    notes: 'For people-managers: a richer HRA and a bonus on top of the regular structure.',
+    rules: [
+      { name: 'Basic Salary', code: 'BASIC', category: 'BASIC', sequence: 1, computation: 'PERCENTAGE', percentage: 55, percentageBase: 'CONTRACT_WAGE' },
+      { name: 'House Rent Allowance', code: 'HRA', category: 'ALLOWANCE', sequence: 10, computation: 'PERCENTAGE', percentage: 45, percentageBase: 'BASIC' },
+      { name: 'Management Allowance', code: 'MGMT', category: 'ALLOWANCE', sequence: 20, computation: 'FIXED', amount: 6000 },
+      { name: 'Performance Bonus', code: 'BONUS', category: 'ALLOWANCE', sequence: 30, computation: 'PERCENTAGE', percentage: 8, percentageBase: 'BASIC' },
+      { name: 'Gross Salary', code: 'GROSS', category: 'GROSS', sequence: 60, computation: 'FORMULA', formula: "result = categories['BASIC'] + categories['ALLOWANCE']" },
+      { name: 'Provident Fund', code: 'PF', category: 'DEDUCTION', sequence: 80, computation: 'PERCENTAGE', percentage: 12, percentageBase: 'BASIC' },
+      { name: 'Professional Tax', code: 'PT', category: 'DEDUCTION', sequence: 100, computation: 'FIXED', amount: 200 },
+      { name: 'Net Salary', code: 'NET', category: 'NET', sequence: 110, computation: 'FORMULA', formula: "result = categories['GROSS'] + categories['DEDUCTION']" },
+    ],
+  },
+  {
+    name: 'Executive Salary',
+    notes: 'Senior leadership: a flat executive allowance rather than a stack of smaller ones.',
+    rules: [
+      { name: 'Basic Salary', code: 'BASIC', category: 'BASIC', sequence: 1, computation: 'PERCENTAGE', percentage: 60, percentageBase: 'CONTRACT_WAGE' },
+      { name: 'House Rent Allowance', code: 'HRA', category: 'ALLOWANCE', sequence: 10, computation: 'PERCENTAGE', percentage: 50, percentageBase: 'BASIC' },
+      { name: 'Executive Allowance', code: 'EXEC', category: 'ALLOWANCE', sequence: 20, computation: 'FIXED', amount: 15000 },
+      { name: 'Gross Salary', code: 'GROSS', category: 'GROSS', sequence: 60, computation: 'FORMULA', formula: "result = categories['BASIC'] + categories['ALLOWANCE']" },
+      { name: 'Provident Fund', code: 'PF', category: 'DEDUCTION', sequence: 80, computation: 'PERCENTAGE', percentage: 12, percentageBase: 'BASIC' },
+      { name: 'Professional Tax', code: 'PT', category: 'DEDUCTION', sequence: 100, computation: 'FIXED', amount: 200 },
+      { name: 'Net Salary', code: 'NET', category: 'NET', sequence: 110, computation: 'FORMULA', formula: "result = categories['GROSS'] + categories['DEDUCTION']" },
+    ],
+  },
+  {
+    name: 'Part-time Hourly',
+    notes: 'Proportioned to days actually worked, like the intern structure, with no statutory deductions.',
+    rules: [
+      { name: 'Hourly Pay', code: 'BASIC', category: 'BASIC', sequence: 1, computation: 'FORMULA', formula: 'result = round(wage * worked_days / max(total_days, 1), 2)' },
+      { name: 'Gross Salary', code: 'GROSS', category: 'GROSS', sequence: 60, computation: 'FORMULA', formula: "result = categories['BASIC'] + categories['ALLOWANCE']" },
+      { name: 'Net Salary', code: 'NET', category: 'NET', sequence: 110, computation: 'FORMULA', formula: "result = categories['GROSS'] + categories['DEDUCTION']" },
+    ],
+  },
+  {
+    name: 'Sales Commission',
+    notes: 'A lower basic offset by a flat commission allowance.',
+    rules: [
+      { name: 'Basic Salary', code: 'BASIC', category: 'BASIC', sequence: 1, computation: 'PERCENTAGE', percentage: 40, percentageBase: 'CONTRACT_WAGE' },
+      { name: 'Commission Allowance', code: 'COMM', category: 'ALLOWANCE', sequence: 20, computation: 'FIXED', amount: 5000 },
+      { name: 'Gross Salary', code: 'GROSS', category: 'GROSS', sequence: 60, computation: 'FORMULA', formula: "result = categories['BASIC'] + categories['ALLOWANCE']" },
+      { name: 'Provident Fund', code: 'PF', category: 'DEDUCTION', sequence: 80, computation: 'PERCENTAGE', percentage: 12, percentageBase: 'BASIC' },
+      { name: 'Professional Tax', code: 'PT', category: 'DEDUCTION', sequence: 100, computation: 'FIXED', amount: 200 },
+      { name: 'Net Salary', code: 'NET', category: 'NET', sequence: 110, computation: 'FORMULA', formula: "result = categories['GROSS'] + categories['DEDUCTION']" },
+    ],
+  },
+  {
+    name: 'Contractor Plus',
+    notes: 'Like Contractor, with a lighter tax rate for a specialised engagement.',
+    rules: [
+      { name: 'Contract Fee', code: 'BASIC', category: 'BASIC', sequence: 1, computation: 'PERCENTAGE', percentage: 100, percentageBase: 'CONTRACT_WAGE' },
+      { name: 'Gross Salary', code: 'GROSS', category: 'GROSS', sequence: 60, computation: 'FORMULA', formula: "result = categories['BASIC'] + categories['ALLOWANCE']" },
+      { name: 'Tax Deducted at Source', code: 'TDS', category: 'DEDUCTION', sequence: 90, computation: 'PERCENTAGE', percentage: 8, percentageBase: 'GROSS' },
       { name: 'Net Salary', code: 'NET', category: 'NET', sequence: 110, computation: 'FORMULA', formula: "result = categories['GROSS'] + categories['DEDUCTION']" },
     ],
   },
@@ -267,7 +438,7 @@ const LAST_NAMES = [
   'Menon', 'Mishra', 'Naik', 'Pillai', 'Prasad', 'Saxena', 'Shah', 'Thakur', 'Tiwari', 'Vora',
 ];
 
-const GENERATED_COUNT = 231; // 231 + 9 heroes = 240 employees total.
+const GENERATED_COUNT = 391; // 391 + 9 heroes = 400 employees total.
 
 /** Every generated person is fully deterministic — no Math.random anywhere —
  * so re-running the seed against an existing database is safe. */
@@ -552,7 +723,7 @@ async function main() {
           index: i, // generation index, used to spread hire dates across the payroll history
           wage: person.wage,
           hasBankAccount: Boolean(person.bankAccount),
-          historyExtra: i < 29, // first 29 generated also get contract history
+          historyExtra: i < 49, // first 49 generated also get contract history
         });
 
         if (!deptHeadId.has(person.department)) {
@@ -572,7 +743,7 @@ async function main() {
 
   /* ------------------------------------------------------------------ 3. users */
 
-  const USER_ACCOUNT_TARGET_GENERATED = 201; // + 9 heroes = 210 total accounts.
+  const USER_ACCOUNT_TARGET_GENERATED = 340; // + 6 hero accounts = 346 total.
   await step(`User accounts (~${HERO_COUNT + USER_ACCOUNT_TARGET_GENERATED})`, async () => {
     let created = 0;
     for (const person of PEOPLE) {
@@ -666,8 +837,8 @@ async function main() {
   await step('Attendance', async () => {
     // A representative slice: every hero with a wage, plus the first batch of
     // generated employees, spread across a handful of departments.
-    const subject = employeeMeta.filter((p) => p.name !== 'System Administrator').slice(0, 40);
-    const workDays = lastWorkingDays(7);
+    const subject = employeeMeta.filter((p) => p.name !== 'System Administrator').slice(0, 90);
+    const workDays = lastWorkingDays(10);
 
     // Full refresh: attendance is recent-window data by nature, so replacing
     // it wholesale on every seed run is the correct behaviour, not a hazard —
@@ -720,7 +891,7 @@ async function main() {
     await prisma.timeOffRequest.deleteMany({});
     await prisma.timeOffAllocation.deleteMany({});
 
-    const subject = employeeMeta.filter((p) => p.name !== 'System Administrator').slice(0, 130);
+    const subject = employeeMeta.filter((p) => p.name !== 'System Administrator').slice(0, 220);
     const validFrom = firstOfMonth(-6);
     const validTo = lastOfMonth(6);
     let rows = 0;
@@ -761,7 +932,7 @@ async function main() {
   });
 
   await step('Time off requests', async () => {
-    const subject = employeeMeta.filter((p) => p.name !== 'System Administrator').slice(0, 130);
+    const subject = employeeMeta.filter((p) => p.name !== 'System Administrator').slice(0, 220);
     const scheduleDays = (await prisma.workingSchedule.findUnique({
       where: { name: '40 Hours / Week' },
       select: { days: { select: { dayOfWeek: true, startMinutes: true, endMinutes: true, breakMinutes: true } } },
